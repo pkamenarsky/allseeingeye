@@ -21,7 +21,7 @@ walk a b = foldl (\a (i, j) -> loop i j a) f [ (i, j) | i <- [1..length a - 1], 
 
 sim :: Eq a => a -> a -> Int
 sim a b | a == b = 1
-        | otherwise = 0
+        | otherwise = -1
 
 align :: (Eq a, Show a) => [a] -> [a] -> [[Int]] -> (String, String)
 align a b f = go (length a - 1) (length b - 1) ("", "")
@@ -35,5 +35,20 @@ align a b f = go (length a - 1) (length b - 1) ("", "")
       | otherwise
         = go i (j - 1) ("-" ++ ala, show (b !! j) ++ alb)
 
+align2 :: (Eq a, Show a) => [a] -> [a] -> [[Int]] -> String
+align2 a b f = go (length a - 1) (length b - 1) ""
+  where
+    go 0 0 al = al
+    go i j al
+      | i > 0 && j > 0 && (f !! i !! j) == (f !! (i - 1) !! (j - 1)) + sim (a !! i) (b !! j)
+        = go (i - 1) (j - 1) (show (a !! i) ++ al)
+      | i > 0 && (f !! i !! j) == (f !! (i - 1) !! j)
+        = go (i - 1) j ("-" ++ show (a !! i) ++ al)
+      | otherwise
+        = go i (j - 1) ("+" ++ show (b !! j) ++ al)
+
 nw :: (Eq a, Show a) => [a] -> [a] -> (String, String)
 nw a b = align a b (walk a b)
+
+nw2 :: (Eq a, Show a) => [a] -> [a] -> String
+nw2 a b = align2 a b (walk a b)
