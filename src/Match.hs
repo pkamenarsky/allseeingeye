@@ -41,11 +41,11 @@ align2 a b f = go (length a - 1) (length b - 1) ""
     go 0 0 al = al
     go i j al
       | i > 0 && j > 0 && (f !! i !! j) == (f !! (i - 1) !! (j - 1)) + sim (a !! i) (b !! j)
-        = go (i - 1) (j - 1) (show (a !! i) ++ al)
+        = go (i - 1) (j - 1) (show (a !! i) ++ "\n" ++ al)
       | i > 0 && (f !! i !! j) == (f !! (i - 1) !! j)
-        = go (i - 1) j ("-" ++ show (a !! i) ++ al)
+        = go (i - 1) j ("-" ++ show (a !! i) ++ "\n" ++ al)
       | otherwise
-        = go i (j - 1) ("+" ++ show (b !! j) ++ al)
+        = go i (j - 1) ("+" ++ show (b !! j) ++ "\n" ++ al)
 
 nw :: (Eq a, Show a) => [a] -> [a] -> (String, String)
 nw a b = align a b (walk a b)

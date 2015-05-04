@@ -27,3 +27,6 @@ isDep (VarRef _ rid) (VarDeclStmt _ vds) = concatMap (varDep rid) vds
   where
     varDep rid' (VarDecl _ vid _) | idEq rid' vid = [vid]
                                   | otherwise     = []
+
+d1 = [VarDeclStmt () [VarDecl () (Id () "a") (Just (IntLit () 4))],ExprStmt () (CallExpr () (DotRef () (VarRef () (Id () "console")) (Id () "alert")) [StringLit () "THIS IS A TEST"]),ReturnStmt () (Just (InfixExpr () OpAdd (VarRef () (Id () "a")) (IntLit () 1)))]
+d2 = [ExprStmt () (CallExpr () (DotRef () (VarRef () (Id () "console")) (Id () "alert")) [StringLit () "THIS IS A TEST"]),VarDeclStmt () [VarDecl () (Id () "a") (Just (IntLit () 4))],ReturnStmt () (Just (InfixExpr () OpAdd (VarRef () (Id () "a")) (IntLit () 1)))]
