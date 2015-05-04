@@ -4,6 +4,8 @@ import Language.ECMAScript3.Parser
 import Language.ECMAScript3.PrettyPrint
 import Language.ECMAScript3.Syntax
 
+import Match
+
 main :: IO ()
 main = do
   parsed <- parseFromFile "test.js"
@@ -15,6 +17,7 @@ idEq (Id _ i) (Id _ i') = i == i'
 
 expDep :: Expression a -> Expression a -> [Id a]
 expDep (ArrayLit _ es) x = concatMap (flip expDep x) es
+-- expDep (ObjectLit _ props) x = concatMap (flip expDep x) es
 
 isDep :: Expression a -> Statement a -> [Id a]
 isDep e (BlockStmt _ ss) = concatMap (isDep e) ss
