@@ -1,4 +1,4 @@
-module Match where
+module Match () where
 
 import Control.Monad
 
