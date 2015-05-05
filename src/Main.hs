@@ -2,10 +2,16 @@
 
 module Main where
 
+import           Control.Arrow
 import           Control.Applicative
 
+import qualified Data.Set                         as S
 import qualified Data.Map                         as M
 import           Data.Maybe
+import           Data.Data
+import           Data.Typeable
+
+import           Language.ECMAScript3.Analysis.LexicalEnvironment
 
 import           Language.ECMAScript3.Parser
 import           Language.ECMAScript3.PrettyPrint
@@ -15,8 +21,9 @@ import           Match
 
 main :: IO ()
 main = do
-  parsed <- parseFromFile "test.js"
-  print $ (const ()) `fmap` parsed
+  Script _ parsed <- parseFromFile "test.js"
+  -- print $ (const ()) `fmap` parsed
+  print $ localVars parsed
   --print $ prettyPrint parsed
 
 idEq :: Id a -> Id a -> Bool
@@ -55,10 +62,13 @@ addVarDecl vid st ctx@(Context {..}) = ctx { ctxVarDecls = M.insert vid st ctxVa
 addDep :: Ord a => Statement a -> Statement a -> Context a -> Context a
 addDep st dep ctx@(Context {..}) = ctx { ctxDeps = M.insert st dep ctxDeps }
 
+walk' :: JavaScript a -> (Statement a -> st -> st) -> st -> st
+walk' = undefined
+
 walk :: Ord a => Context a -> Statement a -> Context a
 walk ctx (BlockStmt _ sts) = foldl walk ctx sts
 walk ctx st@(VarDeclStmt _ decls) = foldr (\(VarDecl _ vid _) -> addVarDecl vid st) ctx decls
-walk ctx st@(ExprStmt _ (VarRef _ vid)) = fromMaybe ctx $ addDep st <$> dep <*> pure ctx
+walk ctx st@(ExprStmt _ (VarRef _ vid)) = fromMaybe ctx $ addDep <$> dep <*> pure st <*> pure ctx
   where
     dep = getVarDecl ctx vid
 walk ctx _ = ctx
