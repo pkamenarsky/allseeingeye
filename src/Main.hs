@@ -45,30 +45,34 @@ isDep (VarRef _ rid) (VarDeclStmt _ vds) = concatMap (varDep rid) vds
 d1 = [VarDeclStmt () [VarDecl () (Id () "a") (Just (IntLit () 4))],ExprStmt () (CallExpr () (DotRef () (VarRef () (Id () "console")) (Id () "alert")) [StringLit () "THIS IS A TEST"]),ReturnStmt () (Just (InfixExpr () OpAdd (VarRef () (Id () "a")) (IntLit () 1)))]
 d2 = [ExprStmt () (CallExpr () (DotRef () (VarRef () (Id () "console")) (Id () "alert")) [StringLit () "THIS IS A TEST"]),VarDeclStmt () [VarDecl () (Id () "a") (Just (IntLit () 4))],ReturnStmt () (Just (InfixExpr () OpAdd (VarRef () (Id () "a")) (IntLit () 1)))]
 
+-- multitree
+data Strand a = Strand (Statement a) [Strand a] deriving (Eq, Ord, Show)
+
+data IdOrLValue a = IId (Id a) | ILValue (LValue a) deriving (Eq, Ord, Show)
+
 data Context a = Context
-  { ctxVarDecls :: M.Map (Id a) (Statement a)
-  , ctxDeps     :: M.Map (Statement a) (Statement a)
+  { ctxRefHeads :: M.Map (IdOrLValue a) (Strand a)
+  , ctxStrands  :: [Strand a]
   } deriving Show
 
 emptyCtx :: Context a
-emptyCtx = Context M.empty M.empty
+emptyCtx = Context M.empty []
 
-getVarDecl :: Ord a => Context a -> Id a -> Maybe (Statement a)
-getVarDecl (Context {..}) vid = M.lookup vid ctxVarDecls
+getRefHead :: Ord a => Context a -> IdOrLValue a -> Maybe (Strand a)
+getRefHead (Context {..}) vid = M.lookup vid ctxRefHeads
 
-addVarDecl :: Ord a => Id a -> Statement a -> Context a -> Context a
-addVarDecl vid st ctx@(Context {..}) = ctx { ctxVarDecls = M.insert vid st ctxVarDecls }
-
-addDep :: Ord a => Statement a -> Statement a -> Context a -> Context a
-addDep st dep ctx@(Context {..}) = ctx { ctxDeps = M.insert st dep ctxDeps }
+addRefHead :: Ord a => IdOrLValue a -> Statement a -> Context a -> Context a
+addRefHead vid st ctx@(Context {..}) = undefined
 
 walk' :: JavaScript a -> (Statement a -> st -> st) -> st -> st
 walk' = undefined
 
 walk :: Ord a => Context a -> Statement a -> Context a
 walk ctx (BlockStmt _ sts) = foldl walk ctx sts
-walk ctx st@(VarDeclStmt _ decls) = foldr (\(VarDecl _ vid _) -> addVarDecl vid st) ctx decls
+walk ctx st@(VarDeclStmt _ decls) = foldr (\(VarDecl _ vid _) -> addRefHead (IId vid) st) ctx decls
+{-
 walk ctx st@(ExprStmt _ (VarRef _ vid)) = fromMaybe ctx $ addDep <$> dep <*> pure st <*> pure ctx
   where
     dep = getVarDecl ctx vid
+-}
 walk ctx _ = ctx
