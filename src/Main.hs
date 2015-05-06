@@ -19,60 +19,53 @@ import           Language.ECMAScript3.Syntax
 
 import           Match
 
-main :: IO ()
-main = do
-  Script _ parsed <- parseFromFile "test.js"
-  -- print $ (const ()) `fmap` parsed
-  print $ localVars parsed
-  --print $ prettyPrint parsed
-
-idEq :: Id a -> Id a -> Bool
-idEq (Id _ i) (Id _ i') = i == i'
-
-expDep :: Expression a -> Expression a -> [Id a]
-expDep (ArrayLit _ es) x = concatMap (flip expDep x) es
--- expDep (ObjectLit _ props) x = concatMap (flip expDep x) es
-
-isDep :: Expression a -> Statement a -> [Id a]
-isDep e (BlockStmt _ ss) = concatMap (isDep e) ss
-isDep e (EmptyStmt _) = []
--- ...
-isDep (VarRef _ rid) (VarDeclStmt _ vds) = concatMap (varDep rid) vds
-  where
-    varDep rid' (VarDecl _ vid _) | idEq rid' vid = [vid]
-                                  | otherwise     = []
-
-d1 = [VarDeclStmt () [VarDecl () (Id () "a") (Just (IntLit () 4))],ExprStmt () (CallExpr () (DotRef () (VarRef () (Id () "console")) (Id () "alert")) [StringLit () "THIS IS A TEST"]),ReturnStmt () (Just (InfixExpr () OpAdd (VarRef () (Id () "a")) (IntLit () 1)))]
-d2 = [ExprStmt () (CallExpr () (DotRef () (VarRef () (Id () "console")) (Id () "alert")) [StringLit () "THIS IS A TEST"]),VarDeclStmt () [VarDecl () (Id () "a") (Just (IntLit () 4))],ReturnStmt () (Just (InfixExpr () OpAdd (VarRef () (Id () "a")) (IntLit () 1)))]
-
 -- multitree
 data Strand a = Strand (Statement a) [Strand a] deriving (Eq, Ord, Show)
 
-data IdOrLValue a = IId (Id a) | ILValue (LValue a) deriving (Eq, Ord, Show)
+data RefHead a = RHVar a String | RHDot a (Expression a) String | RHBracket a (Expression a) (Expression a) deriving (Eq, Ord, Show)
+
+lValueToRefHead :: LValue a -> RefHead a
+lValueToRefHead (LVar a v)        = RHVar a v
+lValueToRefHead (LDot a e v)      = RHDot a e v
+lValueToRefHead (LBracket a e e') = RHBracket a e e'
+
+idToRefHead :: Id a -> RefHead a
+idToRefHead (Id a v) = RHVar a v
 
 data Context a = Context
-  { ctxRefHeads :: M.Map (IdOrLValue a) (Strand a)
+  { ctxRefHeads :: M.Map (RefHead a) (Strand a)
   , ctxStrands  :: [Strand a]
   } deriving Show
 
 emptyCtx :: Context a
 emptyCtx = Context M.empty []
 
-getRefHead :: Ord a => Context a -> IdOrLValue a -> Maybe (Strand a)
+getRefHead :: Ord a => Context a -> RefHead a -> Maybe (Strand a)
 getRefHead (Context {..}) vid = M.lookup vid ctxRefHeads
 
-addRefHead :: Ord a => IdOrLValue a -> Statement a -> Context a -> Context a
-addRefHead vid st ctx@(Context {..}) = undefined
+setRefHead :: Ord a => RefHead a -> Statement a -> Context a -> Context a
+setRefHead vid st ctx@(Context {..}) = ctx { ctxRefHeads = M.alter f vid ctxRefHeads }
+  where
+    f Nothing    = Just $ Strand st []
+    f (Just str) = Just $ Strand st [str]
 
 walk' :: JavaScript a -> (Statement a -> st -> st) -> st -> st
 walk' = undefined
 
 walk :: Ord a => Context a -> Statement a -> Context a
 walk ctx (BlockStmt _ sts) = foldl walk ctx sts
-walk ctx st@(VarDeclStmt _ decls) = foldr (\(VarDecl _ vid _) -> addRefHead (IId vid) st) ctx decls
+walk ctx st@(VarDeclStmt _ decls) = foldr (\(VarDecl _ vid _) -> setRefHead (idToRefHead vid) st) ctx decls
+walk ctx st@(ExprStmt _ (AssignExpr _ _ lv _)) = setRefHead (lValueToRefHead lv) st ctx
+walk ctx st@(ExprStmt _ (UnaryAssignExpr _ _ lv)) = setRefHead (lValueToRefHead lv) st ctx
 {-
 walk ctx st@(ExprStmt _ (VarRef _ vid)) = fromMaybe ctx $ addDep <$> dep <*> pure st <*> pure ctx
   where
     dep = getVarDecl ctx vid
 -}
 walk ctx _ = ctx
+
+main :: IO ()
+main = do
+  Script _ [st@(BlockStmt _ _)] <- parseFromFile "test.js"
+  print $ walk emptyCtx (const () <$> st)
+

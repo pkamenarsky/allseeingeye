@@ -2,10 +2,7 @@
   console.alert("THIS IS A TEST");
   var a = 4;
   var b = a;
-  b;
-  var f = function() {
-    print("print");
-  };
+  a = 6;
   return a + 1;
 }
 
