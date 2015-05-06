@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, TupleSections #-}
 
 module Main where
 
@@ -7,6 +7,7 @@ import           Control.Applicative
 
 import           Data.Data
 import           Data.Generics.Uniplate.Data
+import           Data.List
 import qualified Data.Set                         as S
 import qualified Data.Map                         as M
 import           Data.Maybe
@@ -38,11 +39,11 @@ idToRef (Id a v) = RHVar a v
 
 data Context a = Context
   { ctxRefHeads :: M.Map (Ref a) (Strand a)
-  , ctxStrands  :: [Strand a]
+  , ctxStrands  :: M.Map (Ref a) (Strand a)
   } deriving Show
 
 emptyCtx :: Context a
-emptyCtx = Context M.empty []
+emptyCtx = Context M.empty M.empty
 
 getRefHead :: Ord a => Context a -> Ref a -> Maybe (Strand a)
 getRefHead (Context {..}) vid = M.lookup vid ctxRefHeads
@@ -70,22 +71,38 @@ setRefHead vid st ctx@(Context {..}) = ctx { ctxRefHeads = M.alter f vid ctxRefH
     stRefs (ExprStmt _ (AssignExpr _ _ _ e)) = extractRefs e
     stRefs _                                 = []
 
+addStrand :: (Data a, Ord a) => Statement a -> Context a -> Context a
+addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = foldr (uncurry M.insert) (ctxStrands ctx) refs }
+  where
+    refs = mapMaybe (\e -> (e,) <$> (f $ getRefHead ctx e)) (extractRefs e)
+
+    f Nothing    = Nothing
+    f (Just str) = Just $ Strand st [str]
+
+addStrand _ ctx = ctx
+
 walk' :: JavaScript a -> (Statement a -> st -> st) -> st -> st
 walk' = undefined
 
 walk :: (Ord a, Data a) => Context a -> Statement a -> Context a
 walk ctx (BlockStmt _ sts) = foldl walk ctx sts
-walk ctx st@(VarDeclStmt _ decls) = foldr (\(VarDecl _ vid _) -> setRefHead (idToRef vid) st) ctx decls
-walk ctx st@(ExprStmt _ (AssignExpr _ _ lv _)) = setRefHead (lValueToRef lv) st ctx
-walk ctx st@(ExprStmt _ (UnaryAssignExpr _ _ lv)) = setRefHead (lValueToRef lv) st ctx
-walk ctx _ = ctx
+walk ctx st@(VarDeclStmt _ decls) = addStrand st $ foldr (\(VarDecl _ vid _) -> setRefHead (idToRef vid) st) ctx decls
+walk ctx st@(ExprStmt _ (AssignExpr _ _ lv _)) = addStrand st $ setRefHead (lValueToRef lv) st ctx
+walk ctx st@(ExprStmt _ (UnaryAssignExpr _ _ lv)) = addStrand st $ setRefHead (lValueToRef lv) st ctx
+walk ctx st = addStrand st ctx
 
 main :: IO ()
 main = do
   Script _ [st@(BlockStmt _ _)] <- parseFromFile "test.js"
-  print $ walk emptyCtx (const () <$> st)
+  printContext $ walk emptyCtx (const () <$> st)
 
 pparse :: IO ()
 pparse = do
   prs <- parseFromFile "test.js"
   print $ const () <$> prs
+
+printStrand :: Int -> Strand a -> String
+printStrand level (Strand st strs) = (replicate level ' ') ++ (show $ prettyPrint st) ++ "\n" ++ (intercalate "\n" $ map (printStrand (level + 2)) strs)
+
+printContext :: Context a -> IO ()
+printContext (Context {..}) = putStrLn $ intercalate "\n" $ map (printStrand 0) (M.elems ctxStrands)

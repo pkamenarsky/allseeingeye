@@ -2,8 +2,11 @@
   console.alert("THIS IS A TEST");
   var a = 4;
   var b = a;
+  b = 9;
+  b = 10;
   a = 6;
   var c = a + b;
+  a + b + c;
 }
 
 /*
