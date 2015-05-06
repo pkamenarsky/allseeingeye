@@ -6,7 +6,10 @@
   b = 10;
   a = 6;
   var c = a + b;
-  a + b + c;
+  f(c);
+  f(c);
+  f(a, b, c);
+  return (a + b + c);
 }
 
 /*

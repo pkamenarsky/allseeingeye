@@ -21,13 +21,18 @@ import           Language.ECMAScript3.Syntax
 
 import           Match
 
+import Debug.Trace
+
 -- multitree
 data Strand a = Strand (Statement a) [Strand a] deriving (Eq, Ord, Show)
 
 -- FIXME: remove double references, i.e. a -> b -> c should disallow a -> c
 
 -- FIXME: we can not use RHDot and RHBracked, *except* when the expressions are literals
-data Ref a = RHVar a String | RHDot a (Expression a) String | RHBracket a (Expression a) (Expression a) deriving (Eq, Ord, Show)
+data Ref a = RHVar a String | RHDot a (Expression a) String | RHBracket a (Expression a) (Expression a) deriving (Eq, Ord)
+
+instance Show (Ref a) where
+  show _ = "REF"
 
 lValueToRef :: LValue a -> Ref a
 lValueToRef (LVar a v)        = RHVar a v
@@ -72,13 +77,13 @@ setRefHead vid st ctx@(Context {..}) = ctx { ctxRefHeads = M.alter f vid ctxRefH
     stRefs _                                 = []
 
 addStrand :: (Data a, Ord a) => Statement a -> Context a -> Context a
-addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = foldr (uncurry M.insert) (ctxStrands ctx) refs }
+addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = foldr (uncurry M.insert) (ctxStrands ctx) (refs' ++ refs) }
   where
     refs = mapMaybe (\e -> (e,) <$> (f $ getRefHead ctx e)) (extractRefs e)
+    refs' = mapMaybe (\e -> (e,) <$> (f $ M.lookup e (ctxStrands ctx))) (extractRefs e)
 
     f Nothing    = Nothing
     f (Just str) = Just $ Strand st [str]
-
 addStrand _ ctx = ctx
 
 walk' :: JavaScript a -> (Statement a -> st -> st) -> st -> st
@@ -89,7 +94,9 @@ walk ctx (BlockStmt _ sts) = foldl walk ctx sts
 walk ctx st@(VarDeclStmt _ decls) = addStrand st $ foldr (\(VarDecl _ vid _) -> setRefHead (idToRef vid) st) ctx decls
 walk ctx st@(ExprStmt _ (AssignExpr _ _ lv _)) = addStrand st $ setRefHead (lValueToRef lv) st ctx
 walk ctx st@(ExprStmt _ (UnaryAssignExpr _ _ lv)) = addStrand st $ setRefHead (lValueToRef lv) st ctx
-walk ctx st = addStrand st ctx
+walk ctx st@(ExprStmt _ (CallExpr _ _ _)) = addStrand st ctx
+walk ctx st@(ReturnStmt a (Just e)) = addStrand (ExprStmt a e) ctx
+walk ctx st = ctx
 
 main :: IO ()
 main = do
