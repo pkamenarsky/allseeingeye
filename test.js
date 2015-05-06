@@ -3,7 +3,7 @@
   var a = 4;
   var b = a;
   a = 6;
-  return a + 1;
+  var c = a + b;
 }
 
 /*
