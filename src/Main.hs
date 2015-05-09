@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, RecordWildCards, TupleSections #-}
+{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, FlexibleInstances, RecordWildCards, MultiParamTypeClasses, TupleSections #-}
 
 module Main where
 
@@ -133,13 +133,13 @@ label n = evalState (transformM (\(N (_, a) xs) -> do
 l :: Ord a => N (Int, a) -> [a]
 l (N a []) = undefined
 
-class Graph n where
-  node :: n a -> (a, [n a])
+class Graph n a where
+  node :: n -> (a, [n])
 
-instance Graph N where
+instance Graph (N a) a where
   node (N a ns) = (a, ns)
 
-topsort :: (Graph n, Ord a, Ord (n a)) => n a -> [a]
+topsort :: (Ord a, Ord (n a), Graph (n a) a) => n a -> [a]
 topsort root = runST $ do
   visited <- newSTRef M.empty
   stack   <- newSTRef []
