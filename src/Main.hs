@@ -104,22 +104,22 @@ walk ctx st = ctx
 main :: IO ()
 main = do
   Script _ [st@(BlockStmt _ _)] <- parseFromFile "test.js"
-  printContext $ walk emptyCtx (const () <$> st)
+  printContext $ walk emptyCtx st
 
 pparse :: IO ()
 pparse = do
   prs <- parseFromFile "test.js"
   print $ const () <$> prs
 
-printStrand :: Int -> Strand a -> String
-printStrand level (Strand st strs) = (replicate level ' ') ++ (show $ prettyPrint st) ++ "\n" ++ (intercalate "\n" $ map (printStrand (level + 2)) strs)
+ts :: Ord a => Strand a -> [Statement a]
+ts = topsort
 
-printContext :: Context a -> IO ()
+printStrand :: (Ord a) => Int -> Strand a -> String
+-- printStrand level (Strand st strs) = (replicate level ' ') ++ (show $ prettyPrint st) ++ "\n" ++ (intercalate "\n" $ map (printStrand (level + 2)) strs)
+printStrand level str = intercalate " -> " $ map (show . prettyPrint) $ ts str
+
+printContext :: (Ord a) => Context a -> IO ()
 printContext (Context {..}) = putStrLn $ intercalate "\n" $ map (printStrand 0) (M.elems ctxStrands)
-
-linearize :: Strand a -> [[Statement a]]
-linearize (Strand st [str]) = map (st:) (linearize str)
-linearize (Strand st strs)  = undefined
 
 data N a = N a [N a] deriving (Eq, Ord, Data, Show, Functor, Typeable)
 
@@ -139,7 +139,10 @@ class Graph n a where
 instance Graph (N a) a where
   node (N a ns) = (a, ns)
 
-topsort :: (Ord a, Ord (n a), Graph (n a) a) => n a -> [a]
+instance Graph (Strand a) (Statement a) where
+  node (Strand st strs) = (st, strs)
+
+topsort :: (Ord a, Ord (n a), Graph (n a) b) => n a -> [b]
 topsort root = runST $ do
   visited <- newSTRef M.empty
   stack   <- newSTRef []
