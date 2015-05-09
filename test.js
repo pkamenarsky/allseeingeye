@@ -1,4 +1,5 @@
 {
+  /*
   console.alert("THIS IS A TEST");
   var a = 4;
   var b = a;
@@ -10,6 +11,11 @@
   f(c);
   f(a, b, c);
   return (a + b + c);
+  */
+  var a = 5;
+  var c = a;
+  var b = c;
+  return (c + a + b + c);
 }
 
 /*

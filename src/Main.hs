@@ -104,7 +104,8 @@ walk ctx st = ctx
 main :: IO ()
 main = do
   Script _ [st@(BlockStmt _ _)] <- parseFromFile "test.js"
-  printContext $ walk emptyCtx st
+  printContext $ walk emptyCtx (const () <$> st)
+  -- print $ map show $ M.elems $ ctxStrands $ walk emptyCtx st
 
 pparse :: IO ()
 pparse = do
