@@ -1,9 +1,11 @@
-{-# LANGUAGE RecordWildCards, TupleSections #-}
+{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, RecordWildCards, TupleSections #-}
 
 module Main where
 
 import           Control.Arrow
 import           Control.Applicative
+import           Control.Monad.State
+import           Control.Monad.ST
 
 import           Data.Data
 import           Data.Generics.Uniplate.Data
@@ -11,6 +13,7 @@ import           Data.List
 import qualified Data.Set                         as S
 import qualified Data.Map                         as M
 import           Data.Maybe
+import           Data.STRef
 import           Data.Typeable
 
 import           Language.ECMAScript3.Analysis.LexicalEnvironment
@@ -113,3 +116,45 @@ printStrand level (Strand st strs) = (replicate level ' ') ++ (show $ prettyPrin
 
 printContext :: Context a -> IO ()
 printContext (Context {..}) = putStrLn $ intercalate "\n" $ map (printStrand 0) (M.elems ctxStrands)
+
+linearize :: Strand a -> [[Statement a]]
+linearize (Strand st [str]) = map (st:) (linearize str)
+linearize (Strand st strs)  = undefined
+
+data N a = N a [N a] deriving (Eq, Ord, Data, Show, Functor, Typeable)
+
+label :: Data a => N a -> N (Int, a)
+label n = evalState (transformM (\(N (_, a) xs) -> do
+  i <- get
+  put (i + 1)
+  return $ N (i, a) xs
+  ) $ fmap (0,) n) 0
+
+l :: Ord a => N (Int, a) -> [a]
+l (N a []) = undefined
+
+class Graph n where
+  node :: n a -> (a, [n a])
+
+instance Graph N where
+  node (N a ns) = (a, ns)
+
+topsort :: (Graph n, Ord a, Ord (n a)) => n a -> [a]
+topsort root = runST $ do
+  visited <- newSTRef M.empty
+  stack   <- newSTRef []
+
+  let f n = do
+        v <- M.findWithDefault False n <$> readSTRef visited
+        unless v $ do
+          modifySTRef visited $ M.insert n True
+          let (a, ns) = node n
+          forM ns f
+          modifySTRef stack (a:)
+
+  f root
+  readSTRef stack
+
+final = N 666 []
+
+n = N 5 [N 6 [final], N 7 [N 8 [final]]]
