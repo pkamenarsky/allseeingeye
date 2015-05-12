@@ -84,7 +84,7 @@ isPure :: Context a -> Expression a -> Bool
 isPure _ _ = False
 
 addStrand :: (Data a, Ord a) => Statement a -> Context a -> Context a
-addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = del refs $ M.insert st str $ ctxStrands ctx
+addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = M.insert st str $ ctxStrands ctx
                                       , ctxPrevImpure = foldr (flip M.insert str) (ctxPrevImpure ctx) (extractRefs e)
                                       }
   where
@@ -94,6 +94,7 @@ addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = del refs $ M.insert st str 
 
     str = Strand st refs
 
+    -- TODO: delete "list" strands, i.e. f(a) -> g(a) -> c(a)
     del refs m = foldr (\(Strand str _) a -> M.delete str a) m refs
 
     f Nothing    = Nothing
