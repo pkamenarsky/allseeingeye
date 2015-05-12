@@ -15,8 +15,8 @@
   var a = 5;
   var c = a;
   var b = c;
-  h(c);
-  g(c);
+  h(a);
+  g(b);
   return (c + a + b + c);
 }
 

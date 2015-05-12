@@ -48,11 +48,11 @@ idToRef (Id a v) = RHVar a v
 data Context a = Context
   { ctxRefHeads   :: M.Map (Ref a) (Strand a)
   , ctxStrands    :: M.Map (Statement a) (Strand a)
-  , ctxPrevImpure :: Maybe (Strand a)
+  , ctxPrevImpure :: M.Map (Ref a) (Strand a)
   } deriving Show
 
 emptyCtx :: Context a
-emptyCtx = Context M.empty M.empty Nothing
+emptyCtx = Context M.empty M.empty M.empty
 
 getRefHead :: Ord a => Context a -> Ref a -> Maybe (Strand a)
 getRefHead (Context {..}) vid = M.lookup vid ctxRefHeads
@@ -84,14 +84,17 @@ isPure :: Context a -> Expression a -> Bool
 isPure _ _ = False
 
 addStrand :: (Data a, Ord a) => Statement a -> Context a -> Context a
-addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = M.insert st str $ ctxStrands ctx
-                                      , ctxPrevImpure = Just str
+addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = del refs $ M.insert st str $ ctxStrands ctx
+                                      , ctxPrevImpure = foldr (flip M.insert str) (ctxPrevImpure ctx) (extractRefs e)
                                       }
   where
-    refs = mapMaybe (\e -> (getRefHead ctx e)) (extractRefs e)
+    refs    = mapMaybe (\e -> (getRefHead ctx e)) (extractRefs e)
+           ++ mapMaybe (\e -> (M.lookup e (ctxPrevImpure ctx))) (extractRefs e)
     -- refs' = mapMaybe (\e -> (M.lookup e (ctxStrands ctx))) (extractRefs e)
 
-    str = Strand st (refs ++ maybeToList (ctxPrevImpure ctx))
+    str = Strand st refs
+
+    del refs m = foldr (\(Strand str _) a -> M.delete str a) m refs
 
     f Nothing    = Nothing
     f (Just str) = Just $ Strand st [str]
