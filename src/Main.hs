@@ -46,12 +46,13 @@ idToRef :: Id a -> Ref a
 idToRef (Id a v) = RHVar a v
 
 data Context a = Context
-  { ctxRefHeads :: M.Map (Ref a) (Strand a)
-  , ctxStrands  :: M.Map (Ref a) (Strand a)
+  { ctxRefHeads   :: M.Map (Ref a) (Strand a)
+  , ctxStrands    :: M.Map (Statement a) (Strand a)
+  , ctxPrevImpure :: Maybe (Strand a)
   } deriving Show
 
 emptyCtx :: Context a
-emptyCtx = Context M.empty M.empty
+emptyCtx = Context M.empty M.empty Nothing
 
 getRefHead :: Ord a => Context a -> Ref a -> Maybe (Strand a)
 getRefHead (Context {..}) vid = M.lookup vid ctxRefHeads
@@ -79,15 +80,25 @@ setRefHead vid st ctx@(Context {..}) = ctx { ctxRefHeads = M.alter f vid ctxRefH
     stRefs (ExprStmt _ (AssignExpr _ _ _ e)) = extractRefs e
     stRefs _                                 = []
 
+isPure :: Context a -> Expression a -> Bool
+isPure _ _ = False
+
 addStrand :: (Data a, Ord a) => Statement a -> Context a -> Context a
-addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = foldr (uncurry M.insert) (ctxStrands ctx) (refs' ++ refs) }
+addStrand st@(ExprStmt _ e) ctx = ctx { ctxStrands = M.insert st str $ ctxStrands ctx
+                                      , ctxPrevImpure = Just str
+                                      }
   where
-    refs = mapMaybe (\e -> (e,) <$> (f $ getRefHead ctx e)) (extractRefs e)
-    refs' = mapMaybe (\e -> (e,) <$> (f $ M.lookup e (ctxStrands ctx))) (extractRefs e)
+    refs = mapMaybe (\e -> (getRefHead ctx e)) (extractRefs e)
+    -- refs' = mapMaybe (\e -> (M.lookup e (ctxStrands ctx))) (extractRefs e)
+
+    str = Strand st (refs ++ maybeToList (ctxPrevImpure ctx))
 
     f Nothing    = Nothing
     f (Just str) = Just $ Strand st [str]
 addStrand _ ctx = ctx
+
+addStatement :: (Data a, Ord a) => Statement a -> Context a -> Context a
+addStatement st ctx = undefined
 
 walk' :: JavaScript a -> (Statement a -> st -> st) -> st -> st
 walk' = undefined

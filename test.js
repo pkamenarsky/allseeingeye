@@ -16,8 +16,8 @@
   var c = a;
   var b = c;
   h(c);
-  g (c);
-  f (c + a + b + c);
+  g(c);
+  return (c + a + b + c);
 }
 
 /*
