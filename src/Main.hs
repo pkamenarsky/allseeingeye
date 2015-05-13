@@ -58,14 +58,7 @@ getRefHead :: Ord a => Context a -> Ref a -> Maybe (Strand a)
 getRefHead (Context {..}) vid = M.lookup vid ctxRefHeads
 
 extractRefs :: Data a => Expression a -> [Ref a]
-extractRefs = para f
-  where
-    f (VarRef a (Id _ vid)) vids   = RHVar a vid : concat vids
-    {-
-    f (DotRef a e (Id _ vid)) vids = RHDot a e vid : concat vids
-    f (BracketRef a e e') vids     = RHBracket a e e' : concat vids
-    -}
-    f _ vids                       = concat vids
+extractRefs e = [ RHVar a vid | (VarRef a (Id _ vid)) <- universe e ]
 
 setRefHead :: (Data a, Ord a) => Ref a -> Statement a -> Context a -> Context a
 setRefHead vid st ctx@(Context {..}) = ctx { ctxRefHeads = M.alter f vid ctxRefHeads }
@@ -148,6 +141,22 @@ rewriteVars sts = runST $ do
 pairs :: [a] -> [(a, a)]
 pairs [] = []
 pairs (x:xs) = map (x,) xs ++ pairs xs
+
+newtype EqContainer a = EqContainer a deriving Ord
+
+instance Eq (EqContainer a) where
+  _ == _ = True
+
+matchScore :: Ord a => Expression (EqContainer a) -> Expression (EqContainer a) -> Float
+matchScore (CallExpr _ e vars) (CallExpr _ e' vars') = ns * vs
+  where ns | e == e'   = 1.0
+           | otherwise = 0.5
+        vs | S.fromList vars == S.fromList vars' = 1.0
+           | otherwise                           = 0.5
+matchScore _ _ = 1.0
+
+matchExpr :: Ord a => Expression (EqContainer a) -> Expression (EqContainer a) -> Float
+matchExpr = undefined
 
 main :: IO ()
 main = do
