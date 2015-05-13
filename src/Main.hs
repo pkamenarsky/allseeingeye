@@ -145,11 +145,28 @@ rewriteVars sts = runST $ do
 
   reverse <$> (go $ reverse sts)
 
+pairs :: [a] -> [(a, a)]
+pairs [] = []
+pairs (x:xs) = map (x,) xs ++ pairs xs
+
 main :: IO ()
 main = do
-  Script _ [st@(BlockStmt _ _)] <- parseFromFile "test.js"
-  printContext $ walk emptyCtx (const () <$> st)
+  Script _ [bs@(BlockStmt _ _), bs'@(BlockStmt _ _)] <- parseFromFile "test.js"
+  let ctx  = walk emptyCtx (const () <$> bs)
+      ctx' = walk emptyCtx (const () <$> bs')
+
+      sts  = [ ts strand
+             | strand <- M.elems $ ctxStrands ctx
+             ]
+      sts'  = [ ts strand
+              | strand <- M.elems $ ctxStrands ctx'
+              ]
+      cmp  = intercalate "\n" [ intercalate " -> " $ map (show . prettyPrint) st | [st, st'] <- sequence [sts, sts'], st == st' ]
+
+  putStrLn cmp
+  -- printContext ctx
   -- print $ map show $ M.elems $ ctxStrands $ walk emptyCtx st
+  return ()
 
 pparse :: IO ()
 pparse = do

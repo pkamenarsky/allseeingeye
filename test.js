@@ -21,6 +21,12 @@
   return (c + a + b + c);
 }
 
+{
+  var x = 5;
+  var y = x;
+  h(y);
+}
+
 /*
 // from underscore.js
 
