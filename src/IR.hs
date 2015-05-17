@@ -1,17 +1,18 @@
 module IR where
 
-data BinOpType
-
-data UnaryOpType
-
 type Name = String
 
 data CtrlType
 
-data St ref = LitDecl ref String
-            | CallDecl ref ref [ref]
-            | Ctrl CtrlType [ref] [St ref]
-            | Return ref
+data E ref = Const String
+           | Ref ref
+           | Call (E ref) [E ref]
+           | Lambda [Name] [S ref]
+
+data S ref = Decl Name (E ref)
+           | Assign Name (E ref)
+           | Block [S ref]
+           | Ctrl (E ref) (S ref)
 
 {-
 x = a + b + c
