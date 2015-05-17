@@ -23,6 +23,7 @@ import           Language.ECMAScript3.PrettyPrint
 import           Language.ECMAScript3.Syntax
 
 import           Match
+import qualified IR                               as IR
 
 import Debug.Trace
 
@@ -148,15 +149,27 @@ instance Eq (EqContainer a) where
   _ == _ = True
 
 matchScore :: Ord a => Expression (EqContainer a) -> Expression (EqContainer a) -> Float
+matchScore (VarRef _ (Id _ vid)) (VarRef _ (Id _ vid')) | vid == vid' = 1.0
+                                                        | otherwise   = 0
 matchScore (CallExpr _ e vars) (CallExpr _ e' vars') = ns * vs
   where ns | e == e'   = 1.0
            | otherwise = 0.5
-        vs | S.fromList vars == S.fromList vars' = 1.0
-           | otherwise                           = 0.5
-matchScore _ _ = 1.0
+        vs       = fromIntegral (S.size sameArgs * 2) / fromIntegral (length vars + length vars')
+        sameArgs = S.fromList vars `S.intersection` S.fromList vars'
+matchScore e e' = 1.0
 
-matchExpr :: Ord a => Expression (EqContainer a) -> Expression (EqContainer a) -> Float
-matchExpr = undefined
+matchScore' :: Expression () -> Expression () -> Float
+matchScore' e e' = vs
+  where
+    ue   = universe e
+    ue'  = universe e'
+    vs   = fromIntegral (S.size isct * 2) / fromIntegral (length ue + length ue')
+    isct = S.fromList ue `S.intersection` S.fromList ue'
+
+matchStmt :: Statement () -> Statement () -> Float
+matchStmt (ExprStmt _ e) (ExprStmt _ e') = matchScore' e e'
+matchStmt (VarDeclStmt _ e) (VarDeclStmt _ e') = 1.0
+matchStmt _ _ = 0
 
 main :: IO ()
 main = do
@@ -167,10 +180,12 @@ main = do
       sts  = [ ts strand
              | strand <- M.elems $ ctxStrands ctx
              ]
-      sts'  = [ ts strand
-              | strand <- M.elems $ ctxStrands ctx'
-              ]
-      cmp  = intercalate "\n" [ intercalate " -> " $ map (show . prettyPrint) st | [st, st'] <- sequence [sts, sts'], st == st' ]
+      sts' = [ ts strand
+             | strand <- M.elems $ ctxStrands ctx'
+             ]
+  -- print sts
+  let pst  = intercalate " -> " . map (show . prettyPrint)
+      cmp  = intercalate "\n" [ show (zipWith matchStmt st st') ++ "   " ++ pst st ++ " *** " ++ pst st' | [st, st'] <- sequence [sts, sts'] ]
 
   putStrLn cmp
   -- printContext ctx

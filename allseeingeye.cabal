@@ -17,7 +17,8 @@ cabal-version:       >=1.10
 
 executable allseeingeye
   main-is:             Main.hs
-  other-modules:       Match
+  other-modules:       Match,
+                       IR
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8,
                        containers,
