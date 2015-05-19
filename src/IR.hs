@@ -4,15 +4,22 @@ type Name = String
 
 data CtrlType
 
-data E ref = Const String
-           | Ref ref
-           | Call (E ref) [E ref]
-           | Lambda [Name] [S ref]
+data E = Const String
+       | Ref String
+       | Call E [E]
+       | Lambda [Name] [S]
 
-data S ref = Decl Name (E ref)
-           | Assign Name (E ref)
-           | Block [S ref]
-           | Ctrl (E ref) (S ref)
+data S = Decl Name E
+       | Assign Name E
+       | Block [S]
+       | Return E
+       | Ctrl E S -- merge with block?
+
+pr = Block
+       [ Decl "x" (Const "5")
+       , Decl "y" (Const "6")
+       , Return (Call (Const "+") [(Ref "x"), (Ref "y")])
+       ]
 
 {-
 x = a + b + c
