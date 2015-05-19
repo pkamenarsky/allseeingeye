@@ -11,6 +11,9 @@ import qualified Data.HashMap.Lazy     as M
 import           Data.STRef
 import qualified Data.Text             as T
 
+import           System.Random
+import           System.IO.Unsafe
+
 type Name = String
 
 data CtrlType
@@ -84,6 +87,7 @@ type DeSer = G -> Int
 serializeG :: G -> Value
 serializeG g = runST $ do
   nid   <- newSTRef (0 :: Int)
+  eid   <- newSTRef (0 :: Int)
   nmap  <- newSTRef M.empty
   verts <- newSTRef M.empty
   edges <- newSTRef []
@@ -99,7 +103,7 @@ serializeG g = runST $ do
             xid' <- readSTRef nid
 
             modifySTRef nid (+1)
-            modifySTRef verts (M.insert (T.pack $ show xid') $ object $ [ "id" .= xid' ] ++ obj)
+            modifySTRef verts (M.insert xid' $ object $ [ "id" .= ("n" ++ show xid'), "size" .= (3 :: Int), "x" .= (unsafePerformIO $ randomRIO (1, 100) :: Int), "y" .= (unsafePerformIO $ randomRIO (1, 100) :: Int) ] ++ obj)
 
             case x of
               Just x' -> modifySTRef nmap (M.insert x' xid')
@@ -109,14 +113,17 @@ serializeG g = runST $ do
 
       insEdge fromId toG = do
         toId <- ser toG
-        modifySTRef edges ((fromId, toId):)
+        eid' <- readSTRef eid
+        modifySTRef eid (+1)
+        modifySTRef edges ((eid', fromId, toId):)
+        return toId
 
-      ser (G_Const c) = insNode Nothing [ "label" .= c ]
-      ser (G_ExtRef x) = insNode (Just x) [ "label" .= x ]
+      ser (G_Const c) = insNode Nothing [ "label" .= ("const " ++ c) ]
+      ser (G_ExtRef x) = insNode (Just x) [ "label" .= ("extrn " ++ x) ]
       ser (G_Call f xs) = do
         xid <- insNode Nothing [ "label" .= ("call" :: String) ]
-        insEdge xid f
-        mapM_ (insEdge xid) xs
+        fid <- insEdge xid f
+        mapM_ (insEdge fid) xs
         return xid
       ser (G_Lambda ns f) = do
         xid <- insNode Nothing [ "label" .= ("\\" ++ (intercalate "," ns) ++ " ->") ]
@@ -146,11 +153,12 @@ serializeG g = runST $ do
   verts' <- readSTRef verts
   edges' <- readSTRef edges
 
-  return $ object [ "nodes" .= Object verts'
-                  , "edges" .= [ object [ "source" .= source
-                                        , "target" .= target
+  return $ object [ "nodes" .= M.elems verts'
+                  , "edges" .= [ object [ "id"     .= ("e" ++ show eid)
+                                        , "source" .= ("n" ++ show source)
+                                        , "target" .= ("n" ++ show target)
                                         ]
-                               | (source, target) <- edges'
+                               | (eid, source, target) <- edges'
                                ]
                   ]
 
@@ -174,9 +182,21 @@ instance Show S where
 
 ---
 
+pr2 = Block
+       [ Decl "x" (Const "5")
+       , Decl "y" (Const "6")
+       , Return (Call (Const "+") [(Ref "x"), (Ref "y")])
+       ]
+
+pr1 = Block
+       [ Decl "x" (Const "5")
+       , Decl "y" (Const "6")
+       , Return (Call (Const "+") [(Ref "x"), (Ref "x"), (Ref "y")])
+       ]
+
 pr = Block
        [ Decl "world" (Const "world")
        , Decl "x" (Const "5")
        , Decl "y" (Const "6")
-       , Return (Call (Const "IO") [Call (Const "+") [(Ref "x"), (Ref "y")], Ref "world"])
+       , Return (Call (Const "IO") [Call (Const "+") [(Ref "x"), (Ref "x"), (Ref "y")], Ref "world"])
        ]

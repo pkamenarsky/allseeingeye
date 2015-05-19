@@ -27,6 +27,7 @@ executable allseeingeye
                        language-ecmascript,
                        language-ecmascript-analysis,
                        mtl,
+                       random,
                        text,
                        uniplate
   hs-source-dirs:      src
