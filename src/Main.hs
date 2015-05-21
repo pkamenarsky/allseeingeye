@@ -23,7 +23,7 @@ import           Language.ECMAScript3.PrettyPrint
 import           Language.ECMAScript3.Syntax
 
 import           Match
-import qualified IR                               as IR
+import qualified IR.Test                          as IR
 
 import Debug.Trace
 
