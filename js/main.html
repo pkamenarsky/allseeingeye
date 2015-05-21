@@ -20,7 +20,15 @@
     var container = document.getElementById('container');
     var network = new vis.Network(container, nodes, {
       nodes: {
-        shape: "circle"
+        shape: "circle",
+        fontFace: "Helvetica",
+        fontSize: 14,
+        fontColor: "#777",
+        radius: 3,
+        color: {
+          border: "#aaa",
+          background: "#f5f5f5"
+        }
       },
       edges: {
         style: "arrow"
