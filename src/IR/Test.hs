@@ -15,7 +15,7 @@ pr2 = Block
 pr1 = Block
        [ Decl "x" (Const "5")
        , Decl "y" (Const "6")
-       , Return (Call (Const "+") [(Ref "x"), (Ref "x"), (Ref "y")])
+       , Return (Call (Const "+") [Ref "x", Ref "x", Ref "y", Call (Const "-") [Ref "x", Ref "y"]])
        ]
 
 pr = Block

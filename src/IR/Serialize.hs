@@ -3,6 +3,7 @@
 module IR.Serialize where
 
 import           Control.Applicative            ((<$>))
+import           Control.Monad
 import           Control.Monad.ST
 
 import           Data.Aeson
@@ -34,7 +35,7 @@ serializeG g = runST $ do
   verts <- newSTRef M.empty
   edges <- newSTRef []
 
-  let insNode x obj = do
+  let insNode x obj f = do
         xid <- case x of
           Just x' -> M.lookup x' <$> readSTRef nmap
           Nothing -> return Nothing
@@ -46,50 +47,43 @@ serializeG g = runST $ do
 
             modifySTRef nid (+1)
             modifySTRef verts (M.insert xid' $ object $ [ "id" .= ("n" ++ show xid'), "size" .= (3 :: Int) ] ++ obj)
-            -- modifySTRef verts (M.insert xid' $ object $ [ "id" .= ("n" ++ show xid'), "size" .= (3 :: Int), "x" .= (unsafePerformIO $ randomRIO (1, 100) :: Int), "y" .= (unsafePerformIO $ randomRIO (1, 100) :: Int) ] ++ obj)
 
             case x of
               Just x' -> modifySTRef nmap (M.insert x' xid')
               Nothing -> return ()
 
+            f xid'
             return xid'
 
-      insEdge fromId toG = do
-        toId <- ser toG
-        eid' <- readSTRef eid
-        modifySTRef eid (+1)
-        modifySTRef edges ((eid', fromId, toId):)
-        return toId
+      insEdges fromId toG = do
+        toIds <- nub <$> mapM ser toG
 
-      ser (G_Const c) = insNode Nothing [ "label" .= ("const " ++ c) ]
-      ser (G_ExtRef x) = insNode (Just x) [ "label" .= ("extrn " ++ x) ]
+        forM toIds $ \toId -> do
+          eid' <- readSTRef eid
+          modifySTRef eid (+1)
+          modifySTRef edges ((eid', fromId, toId):)
+
+        return toIds
+
+      ser (G_Const c) = insNode Nothing [ "label" .= ("const " ++ c) ] $ \_ -> return ()
+      ser (G_ExtRef x) = insNode (Just x) [ "label" .= ("extrn " ++ x) ] $ \_ -> return ()
       ser (G_Call f xs) = do
-        xid <- insNode Nothing [ "label" .= ("call" :: String) ]
-        fid <- insEdge xid f
-        mapM_ (insEdge fid) xs
-        return xid
+        insNode Nothing [ "label" .= ("call" :: String) ] $ \xid -> do
+          [fid] <- insEdges xid [f]
+          insEdges fid xs
       ser (G_Lambda ns f) = do
-        xid <- insNode Nothing [ "label" .= ("\\" ++ (intercalate "," ns) ++ " ->") ]
-        insEdge xid f
-        return xid
+        insNode Nothing [ "label" .= ("\\" ++ (intercalate "," ns) ++ " ->") ] $ \xid -> insEdges xid [f]
       ser (G_Decl x s) = do
-        xid <- insNode (Just x) [ "label" .= ("var " ++ x) ]
-        insEdge xid s
-        return xid
+        insNode (Just x) [ "label" .= ("var " ++ x) ] $ \xid -> insEdges xid [s]
       ser (G_Assign x s) = do
-        xid <- insNode (Just x) [ "label" .= (x ++ "=") ]
-        insEdge xid s
-        return xid
+        insNode (Just x) [ "label" .= (x ++ "=") ] $ \xid -> insEdges xid [s]
       ser (G_Return x) = do
-        xid <- insNode Nothing [ "label" .= ("return" :: String) ]
-        insEdge xid x
-        return xid
+        insNode Nothing [ "label" .= ("return" :: String) ] $ \xid -> insEdges xid [x]
       ser (G_Ctrl x y) = do
-        xid <- insNode Nothing [ "label" .= ("ctrl" :: String) ]
-        insEdge xid x
-        insEdge xid y
-        return xid
-      ser (G_Nop) = insNode Nothing [ "label" .= ("nop" :: String) ]
+        insNode Nothing [ "label" .= ("ctrl" :: String) ] $ \xid -> do
+          insEdges xid [x]
+          insEdges xid [y]
+      ser (G_Nop) = insNode Nothing [ "label" .= ("nop" :: String) ] $ \_ ->  return ()
 
   ser g
 

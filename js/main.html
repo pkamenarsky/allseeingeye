@@ -18,7 +18,14 @@
 
   <script>
     var container = document.getElementById('container');
-    var network = new vis.Network(container, nodes, {});
+    var network = new vis.Network(container, nodes, {
+      nodes: {
+        shape: "circle"
+      },
+      edges: {
+        style: "arrow"
+      }
+    });
   </script>
   </body>
 </html>
