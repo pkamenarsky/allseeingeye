@@ -31,12 +31,13 @@ data G a = G_Const String
        deriving (Eq, Ord, Show)
 
 instance Graph (G a) String where
-  node (G_Const c)    = ("const", [])
+  node (G_Const c)    = ("const " ++ c, [])
   node (G_ExtRef c)   = ("extref", [])
-  node (G_Call f xs)  = ("call", (f:xs))
+  node (G_Call f xs)  | G_Const n <- f = (n, xs)
+                      | otherwise      = ("call", f:xs)
   node (G_Lambda n f) = ("lambda", [f])
-  node (G_Decl n x)   = ("decl", [x])
-  node (G_Assign n x) = ("assgn", [x])
+  node (G_Decl n x)   = ("var " ++ n, [x])
+  node (G_Assign n x) = (n ++ " =", [x])
   node (G_Return x)   = ("return", [x])
   node (G_Ctrl i x)   = ("ctrl", (i:[x]))
   node (G_Nop)        = ("nop", [])

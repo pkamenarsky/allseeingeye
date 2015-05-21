@@ -9,6 +9,7 @@ import           Control.Monad.ST
 import           Data.Aeson
 import qualified Data.HashMap.Lazy              as M
 import           Data.List
+import           Data.Maybe
 import           Data.STRef
 import qualified Data.Text                      as T
 
@@ -69,9 +70,14 @@ serializeG g = runST $ do
       ser (G_Const c) = insNode Nothing [ "label" .= ("const " ++ c) ] $ \_ -> return ()
       ser (G_ExtRef x) = insNode (Just x) [ "label" .= ("extrn " ++ x) ] $ \_ -> return ()
       ser (G_Call f xs) = do
-        insNode Nothing [ "shape" .= ("box" :: T.Text), "label" .= ("call" :: String) ] $ \xid -> do
-          [fid] <- insEdges xid [f]
-          insEdges fid xs
+        let isConst (G_Const n) = Just n
+            isConst _           = Nothing
+        insNode Nothing [ "shape" .= ("box" :: T.Text), "label" .= (fromMaybe "call" (isConst f)) ] $ \xid -> do
+          -- [fid] <- insEdges xid [f]
+          -- insEdges fid xs
+          if isJust $ isConst f
+            then insEdges xid xs
+            else insEdges xid (f:xs)
       ser (G_Lambda ns f) = do
         insNode Nothing [ "label" .= ("\\" ++ (intercalate "," ns) ++ " ->") ] $ \xid -> insEdges xid [f]
       ser (G_Decl x s) = do
