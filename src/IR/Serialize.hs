@@ -48,11 +48,12 @@ serializeG g = runST $ do
             modifySTRef nid (+1)
             modifySTRef verts (M.insert xid' $ object $ [ "id" .= ("n" ++ show xid'), "size" .= (3 :: Int) ] ++ obj)
 
+            f xid'
+
             case x of
               Just x' -> modifySTRef nmap (M.insert x' xid')
               Nothing -> return ()
 
-            f xid'
             return xid'
 
       insEdges fromId toG = do
