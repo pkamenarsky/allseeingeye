@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, TupleSections #-}
+{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings, TupleSections #-}
 
 module IR where
 

@@ -22,6 +22,7 @@ import           Language.ECMAScript3.Parser
 import           Language.ECMAScript3.PrettyPrint
 import           Language.ECMAScript3.Syntax
 
+import           Graph
 import           Match
 import qualified IR.Test                          as IR
 
@@ -209,6 +210,9 @@ printContext (Context {..}) = putStrLn $ intercalate "\n" $ map (printStrand 0) 
 
 data N a = N a [N a] deriving (Eq, Ord, Data, Show, Functor, Typeable)
 
+instance Graph (N a) a where
+  node (N a ns) = (a, ns)
+
 label :: Data a => N a -> N (Int, a)
 label n = evalState (transformM (\(N (_, a) xs) -> do
   i <- get
@@ -219,30 +223,8 @@ label n = evalState (transformM (\(N (_, a) xs) -> do
 l :: Ord a => N (Int, a) -> [a]
 l (N a []) = undefined
 
-class Graph n a where
-  node :: n -> (a, [n])
-
-instance Graph (N a) a where
-  node (N a ns) = (a, ns)
-
 instance Graph (Strand a) (Statement a) where
   node (Strand st strs) = (st, strs)
-
-topsort :: (Ord a, Ord (n a), Graph (n a) b) => n a -> [b]
-topsort root = runST $ do
-  visited <- newSTRef M.empty
-  stack   <- newSTRef []
-
-  let f n = do
-        v <- M.findWithDefault False n <$> readSTRef visited
-        unless v $ do
-          modifySTRef visited $ M.insert n True
-          let (a, ns) = node n
-          forM ns f
-          modifySTRef stack (a:)
-
-  f root
-  readSTRef stack
 
 final = N 666 []
 
