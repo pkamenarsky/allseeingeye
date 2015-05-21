@@ -22,7 +22,8 @@ pr = Block
        [ Decl "world" (Const "world")
        , Decl "x" (Const "5")
        , Decl "y" (Const "6")
+       , Assign "world" (Call (Const "rand") [Ref "x", Ref "world"])
        , Return (Call (Const "IO") [Call (Const "+") [(Ref "x"), (Ref "x"), (Ref "y")], Ref "world"])
        ]
 
-nodes = "var nodes = " ++ (B.unpack $ encode $ serializeG $ fst $ genG ectx pr1)
+nodes = "var nodes = " ++ (B.unpack $ encode $ serializeG $ fst $ genG ectx pr)

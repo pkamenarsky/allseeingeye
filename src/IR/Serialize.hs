@@ -68,17 +68,17 @@ serializeG g = runST $ do
       ser (G_Const c) = insNode Nothing [ "label" .= ("const " ++ c) ] $ \_ -> return ()
       ser (G_ExtRef x) = insNode (Just x) [ "label" .= ("extrn " ++ x) ] $ \_ -> return ()
       ser (G_Call f xs) = do
-        insNode Nothing [ "label" .= ("call" :: String) ] $ \xid -> do
+        insNode Nothing [ "shape" .= ("box" :: T.Text), "label" .= ("call" :: String) ] $ \xid -> do
           [fid] <- insEdges xid [f]
           insEdges fid xs
       ser (G_Lambda ns f) = do
         insNode Nothing [ "label" .= ("\\" ++ (intercalate "," ns) ++ " ->") ] $ \xid -> insEdges xid [f]
       ser (G_Decl x s) = do
-        insNode (Just x) [ "label" .= ("var " ++ x) ] $ \xid -> insEdges xid [s]
+        insNode (Just $ "var " ++ x) [ "label" .= ("var " ++ x) ] $ \xid -> insEdges xid [s]
       ser (G_Assign x s) = do
-        insNode (Just x) [ "label" .= (x ++ "=") ] $ \xid -> insEdges xid [s]
+        insNode (Just $ x ++ " =") [ "label" .= (x ++ " =") ] $ \xid -> insEdges xid [s]
       ser (G_Return x) = do
-        insNode Nothing [ "label" .= ("return" :: String) ] $ \xid -> insEdges xid [x]
+        insNode Nothing [ "shape" .= ("dot" :: T.Text), "label" .= ("" :: String) ] $ \xid -> insEdges xid [x]
       ser (G_Ctrl x y) = do
         insNode Nothing [ "label" .= ("ctrl" :: String) ] $ \xid -> do
           insEdges xid [x]
