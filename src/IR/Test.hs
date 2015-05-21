@@ -3,6 +3,7 @@ module IR.Test where
 import           Data.Aeson
 import qualified Data.ByteString.Lazy.Char8     as B
 
+import           Graph
 import           IR
 import           IR.Serialize
 
@@ -27,4 +28,10 @@ pr = Block
        , Return (Call (Const "IO") [Call (Const "+") [(Ref "world"), (Ref "x"), (Ref "y")], Ref "world"])
        ]
 
-nodes = "var nodes = " ++ (B.unpack $ encode $ serializeG $ fst $ genG ectx pr)
+g :: G ()
+g = fst $ genG ectx pr
+
+nodes = "var nodes = " ++ (B.unpack $ encode $ serializeG g)
+
+ts :: [String]
+ts = topsort g

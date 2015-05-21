@@ -27,7 +27,7 @@ instance Show S where
   show (Return x) = "return " ++ show x
   show (Ctrl f xs) = "ctrl(" ++ show f ++ ")" ++ show xs
 
-serializeG :: G -> Value
+serializeG :: G a -> Value
 serializeG g = runST $ do
   nid   <- newSTRef (0 :: Int)
   eid   <- newSTRef (0 :: Int)

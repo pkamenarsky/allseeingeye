@@ -1,6 +1,8 @@
-{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings, TupleSections #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TupleSections, TypeSynonymInstances #-}
 
 module IR where
+
+import Graph
 
 type Name = String
 
@@ -17,18 +19,27 @@ data S = Decl Name E
        | Return E
        | Ctrl E S -- merge with block?
 
-type G_E = [G]
-
-data G = G_Const String
+data G a = G_Const String
        | G_ExtRef String
-       | G_Call G [G]
-       | G_Lambda [Name] G
-       | G_Decl Name G
-       | G_Assign Name G
-       | G_Return G
-       | G_Ctrl G G
+       | G_Call (G a) [G a]
+       | G_Lambda [Name] (G a)
+       | G_Decl Name (G a)
+       | G_Assign Name (G a)
+       | G_Return (G a)
+       | G_Ctrl (G a) (G a)
        | G_Nop
-       deriving Show
+       deriving (Eq, Ord, Show)
+
+instance Graph (G a) String where
+  node (G_Const c)    = ("const", [])
+  node (G_ExtRef c)   = ("extref", [])
+  node (G_Call f xs)  = ("call", (f:xs))
+  node (G_Lambda n f) = ("lambda", [f])
+  node (G_Decl n x)   = ("decl", [x])
+  node (G_Assign n x) = ("assgn", [x])
+  node (G_Return x)   = ("return", [x])
+  node (G_Ctrl i x)   = ("ctrl", (i:[x]))
+  node (G_Nop)        = ("nop", [])
 
 {-
 cmpE :: E -> E -> Bool
@@ -46,17 +57,17 @@ cmpS (Return x) (Return y) = cmpE x y
 cmpS (Ctrl x u) (Ctrl y v) = cmpE x y && cmpS u v
 -}
 
-type Ctx = String -> G
+type Ctx a = String -> G a
 
 ectx s = G_ExtRef s
 
-genGfromE :: Ctx -> E -> G
+genGfromE :: Ctx a -> E -> G a
 genGfromE _ (Const x) = G_Const x
 genGfromE ctx (Ref r) = ctx r
 genGfromE ctx (Call f xs) = G_Call (genGfromE ctx f) (map (genGfromE ctx) xs)
 genGfromE ctx (Lambda ns f) = G_Lambda ns (fst $ genG ctx f)
 
-genG :: Ctx -> S -> (G, Ctx)
+genG :: Ctx a -> S -> (G a, Ctx a)
 genG ctx (Decl n x) = let g = G_Decl n (genGfromE ctx x) in (g, \r -> if r == n then g else ctx r)
 genG ctx (Assign n x) = let g = G_Assign n (genGfromE ctx x) in (g, \r -> if r == n then g else ctx r)
 genG ctx (Block ss) = go ctx ss
@@ -70,5 +81,5 @@ genG ctx (Ctrl x s) = (G_Ctrl ge gs, ctx')
     ge = genGfromE ctx x
     (gs, ctx') = genG ctx s
 
-cmpG :: G -> G -> Bool
+cmpG :: G a -> G a -> Bool
 cmpG = undefined
