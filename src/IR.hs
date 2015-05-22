@@ -71,14 +71,28 @@ genG ctx (Ctrl x s) = (G_Ctrl ge gs, ctx')
 cmpG :: G a -> G a -> Bool
 cmpG = undefined
 
-isPure :: G a -> Bool
-isPure (G_Const c)    = True
-isPure (G_ExtRef c)   = False
-isPure (G_Call f xs)  = isPure f && all isPure xs
-isPure (G_Lambda n f) = undefined
-isPure (G_Decl n x)   = isPure x
-isPure (G_Arg n)      = True
-isPure (G_Assign n x) = isPure x
-isPure (G_Return x)   = isPure x
-isPure (G_Ctrl i x)   = isPure x
-isPure (G_Nop)        = True
+type RefCtx = [Name]
+
+gatherDecls :: G a -> [Name] -> [Name]
+gatherDecls (G_Const _)    ctx = ctx
+gatherDecls (G_ExtRef c)   ctx = ctx
+gatherDecls (G_Call f xs)  ctx = foldr gatherDecls (gatherDecls f ctx) xs
+gatherDecls (G_Lambda n f) ctx = ctx
+gatherDecls (G_Decl n x)   ctx = n:gatherDecls x ctx
+gatherDecls (G_Arg n)      ctx = n:ctx
+gatherDecls (G_Assign n x) ctx = gatherDecls x ctx
+gatherDecls (G_Return x)   ctx = gatherDecls x ctx
+gatherDecls (G_Ctrl i x)   ctx = gatherDecls i $ gatherDecls x ctx
+gatherDecls (G_Nop)        ctx = ctx
+
+isPure :: RefCtx -> G a -> Bool
+isPure ctx (G_Const c)    = True
+isPure ctx (G_ExtRef c)   = False
+isPure ctx (G_Call f xs)  = undefined
+isPure ctx (G_Lambda n f) = isPure ctx f
+isPure ctx (G_Decl n x)   = isPure (n:ctx) x
+isPure ctx (G_Arg n)      = True
+isPure ctx (G_Assign n x) = n `elem` ctx && isPure ctx x
+isPure ctx (G_Return x)   = isPure ctx x
+isPure ctx (G_Ctrl i x)   = isPure ctx x
+isPure ctx (G_Nop)        = True
