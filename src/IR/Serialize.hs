@@ -19,7 +19,7 @@ instance Show E where
   show (Const x) = x
   show (Ref x) = x
   show (Call f xs) = show f ++ "(" ++ intercalate "," (map show xs) ++ ")"
-  show (Lambda as s) = "(\\" ++ intercalate "," (map show as) ++ " -> " ++ show s
+  show (Lambda as s) = "\\(" ++ intercalate "," as ++ ") -> " ++ show s
 
 instance Show S where
   show (Decl a x) = "var " ++ a ++ " = " ++ show x
@@ -70,18 +70,19 @@ serializeG g = runST $ do
       ser (G_Const c) = insNode Nothing [ "label" .= ("const " ++ c) ] $ \_ -> return ()
       ser (G_ExtRef x) = insNode (Just x) [ "label" .= ("extrn " ++ x) ] $ \_ -> return ()
       ser (G_Call f xs) = do
-        let isConst (G_Const n) = Just n
-            isConst _           = Nothing
-        insNode Nothing [ "shape" .= ("box" :: T.Text), "label" .= (fromMaybe "call" (isConst f)) ] $ \xid -> do
-          -- [fid] <- insEdges xid [f]
-          -- insEdges fid xs
-          if isJust $ isConst f
+        let isRef (G_ExtRef n) = Just n
+            isRef _            = Nothing
+        insNode Nothing [ "shape" .= ("box" :: T.Text), "label" .= (fromMaybe "call" (isRef f)) ] $ \xid -> do
+          if isJust $ isRef f
             then insEdges xid xs
             else insEdges xid (f:xs)
       ser (G_Lambda ns f) = do
-        insNode Nothing [ "label" .= ("\\" ++ (intercalate "," ns) ++ " ->") ] $ \xid -> insEdges xid [f]
+        -- insNode Nothing [ "label" .= ("\\" ++ (intercalate "," ns) ++ " ->") ] $ \xid -> insEdges xid [f]
+        insNode Nothing [ "label" .= ("\\" :: String ) ] $ \xid -> insEdges xid [f]
       ser (G_Decl x s) = do
         insNode (Just $ "var " ++ x) [ "label" .= ("var " ++ x) ] $ \xid -> insEdges xid [s]
+      ser (G_Arg x) = do
+        insNode (Just $ "arg " ++ x) [ "label" .= ("arg " ++ x) ] $ \_ -> return ()
       ser (G_Assign x s) = do
         insNode (Just $ x ++ " =") [ "label" .= (x ++ " =") ] $ \xid -> insEdges xid [s]
       ser (G_Return x) = do

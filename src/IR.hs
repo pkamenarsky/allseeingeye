@@ -20,43 +20,29 @@ data S = Decl Name E
        | Ctrl E S -- merge with block?
 
 data G a = G_Const String
-       | G_ExtRef String
-       | G_Call (G a) [G a]
-       | G_Lambda [Name] (G a)
-       | G_Decl Name (G a)
-       | G_Assign Name (G a)
-       | G_Return (G a)
-       | G_Ctrl (G a) (G a)
-       | G_Nop
-       deriving (Eq, Ord, Show)
+         | G_ExtRef String
+         | G_Call (G a) [G a]
+         | G_Lambda [Name] (G a)
+         | G_Decl Name (G a)
+         | G_Arg Name
+         | G_Assign Name (G a)
+         | G_Return (G a)
+         | G_Ctrl (G a) (G a)
+         | G_Nop
+         deriving (Eq, Ord, Show)
 
 instance Graph (G a) String where
   node (G_Const c)    = ("const " ++ c, [])
   node (G_ExtRef c)   = ("extref", [])
-  node (G_Call f xs)  | G_Const n <- f = (n, xs)
-                      | otherwise      = ("call", f:xs)
+  node (G_Call f xs)  | G_ExtRef n <- f = (n, xs)
+                      | otherwise       = ("call", f:xs)
   node (G_Lambda n f) = ("lambda", [f])
   node (G_Decl n x)   = ("var " ++ n, [x])
+  node (G_Arg n)      = ("arg " ++ n, [])
   node (G_Assign n x) = (n ++ " =", [x])
   node (G_Return x)   = ("return", [x])
   node (G_Ctrl i x)   = ("ctrl", (i:[x]))
   node (G_Nop)        = ("nop", [])
-
-{-
-cmpE :: E -> E -> Bool
-cmpE (Const x) (Const y) = x == y
-cmpE (Ref x) (Ref y) = x == y
-cmpE (Call f xs) (Call g ys) = (cmpE f g) -- && intersect
-cmpE (Lambda as s) (Lambda bs t) = (cmpS s t) -- && intersect
-cmpE _ _ = False
-
-cmpS :: S -> S -> Bool
-cmpS (Decl a x) (Decl b y) = a == b && cmpE x y
-cmpS (Assign a x) (Assign b y) = a == b && cmpE x y
-cmpS x@(Block _) y@(Block _) = genG x `cmpG` genG y
-cmpS (Return x) (Return y) = cmpE x y
-cmpS (Ctrl x u) (Ctrl y v) = cmpE x y && cmpS u v
--}
 
 type Ctx a = String -> G a
 
@@ -66,7 +52,7 @@ genGfromE :: Ctx a -> E -> G a
 genGfromE _ (Const x) = G_Const x
 genGfromE ctx (Ref r) = ctx r
 genGfromE ctx (Call f xs) = G_Call (genGfromE ctx f) (map (genGfromE ctx) xs)
-genGfromE ctx (Lambda ns f) = G_Lambda ns (fst $ genG ctx f)
+genGfromE ctx (Lambda ns f) = G_Lambda ns (fst $ genG (\r -> if any (== r) ns then G_Arg r else ctx r) f)
 
 genG :: Ctx a -> S -> (G a, Ctx a)
 genG ctx (Decl n x) = let g = G_Decl n (genGfromE ctx x) in (g, \r -> if r == n then g else ctx r)
