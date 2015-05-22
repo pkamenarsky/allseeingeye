@@ -70,3 +70,15 @@ genG ctx (Ctrl x s) = (G_Ctrl ge gs, ctx')
 
 cmpG :: G a -> G a -> Bool
 cmpG = undefined
+
+isPure :: G a -> Bool
+isPure (G_Const c)    = True
+isPure (G_ExtRef c)   = False
+isPure (G_Call f xs)  = isPure f && all isPure xs
+isPure (G_Lambda n f) = undefined
+isPure (G_Decl n x)   = isPure x
+isPure (G_Arg n)      = True
+isPure (G_Assign n x) = isPure x
+isPure (G_Return x)   = isPure x
+isPure (G_Ctrl i x)   = isPure x
+isPure (G_Nop)        = True
