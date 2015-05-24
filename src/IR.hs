@@ -80,7 +80,7 @@ cmpG :: G a -> G a -> Bool
 cmpG = undefined
 
 inlineLambdas :: Data a => G a -> Maybe (G a)
--- TODO: G_Assign
+-- TODO: G_Assign & rename names & aliasing
 inlineLambdas (G_Call (G_Decl _ l@(G_Lambda ns (G_Return g))) xs)
   | length ns /= length xs = Nothing
   | otherwise              = Just $ transform f g
