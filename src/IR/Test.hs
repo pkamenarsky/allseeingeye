@@ -3,6 +3,7 @@ module IR.Test where
 import           Data.Aeson
 import qualified Data.ByteString.Lazy.Char8     as B
 import           Data.List
+import           Data.Maybe
 
 import           Graph
 import           IR
@@ -49,7 +50,7 @@ pr4 = Block
        ]
 
 g :: G ()
-g = fst $ genG ectx pr3
+g = fromMaybe G_Nop $ inlineLambdas $ fst $ genG ectx pr3
 
 nodes = "var nodes = " ++ (B.unpack $ encode $ serializeG g)
 

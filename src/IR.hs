@@ -80,13 +80,15 @@ cmpG :: G a -> G a -> Bool
 cmpG = undefined
 
 inlineLambdas :: Data a => G a -> Maybe (G a)
-inlineLambdas (G_Call l@(G_Lambda ns g) xs)
+-- TODO: G_Assign
+inlineLambdas (G_Call (G_Decl _ l@(G_Lambda ns (G_Return g))) xs)
   | length ns /= length xs = Nothing
   | otherwise              = Just $ transform f g
   where
     nxmap = M.fromList $ zip ns xs
     f (G_Arg n') | Just x' <- M.lookup n' nxmap = G_Decl n' x'
                  | otherwise                    = G_Arg n'
+    f x = x
 inlineLambdas g@(G_Call f xs)  = G_Call <$> inlineLambdas f <*> sequence (map inlineLambdas xs)
 inlineLambdas g@(G_Const c)    = Just $ g
 inlineLambdas g@(G_ExtRef c)   = Just $ g
@@ -97,16 +99,6 @@ inlineLambdas g@(G_Assign n x) = G_Assign <$> pure n <*> inlineLambdas x
 inlineLambdas g@(G_Return x)   = G_Return <$> inlineLambdas x
 inlineLambdas g@(G_Ctrl i x)   = G_Ctrl <$> inlineLambdas i <*> inlineLambdas x
 inlineLambdas g@(G_Nop)        = Just $ g
-
-
-
-
-
-
-
-
-
-
 
 type RefCtx = [Name]
 
