@@ -30,15 +30,28 @@ pr = Block
        , Return (Call (Const "IO") [Call (Const "+") [(Ref "world"), (Ref "x"), (Ref "y")], Ref "world"])
        ]
 
+pr3_old = Block
+       [ Decl "world" (Const "world")
+       , Decl "x" (Const "5")
+       , Decl "y" (Const "7")
+       , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
+       , Assign "world" (Call (Ref "rand") [Ref "x", Ref "world"])
+       , Assign "world" (Call (Ref "writeFile") [Ref "y", Ref "x", Ref "world"])
+       , Return (Call (Ref "IO") [Call (Ref "+") [Ref "x", Ref "y"], Ref "world"])
+       ]
+
 pr3 = Block
        [ Decl "world" (Const "world")
+       , Decl "a" (Const "8")
+       , Decl "b" (Const "8")
+       , Decl "c" (Call (Ref "*") [Ref "a", Ref "b"])
        , Decl "x" (Const "5")
        , Decl "y" (Const "7")
        , Decl "z" (Const "8")
        , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
        , Assign "world" (Call (Ref "rand") [Ref "x", Ref "world"])
        , Assign "world" (Call (Ref "writeFile") [Ref "y", Ref "x", Ref "world"])
-       , Return (Call (Ref "IO") [Call (Ref "+") [Ref "z", Ref "x", Ref "y"], Ref "world"])
+       , Return (Call (Ref "IO") [Call (Ref "+") [Ref "z", Ref "x", Ref "y"], Ref "c", Ref "world"])
        ]
 
 getLocal x = Call (Const $ "local[" ++ x ++ "]") [Ref "locals"]
@@ -51,7 +64,7 @@ pr4 = Block
        ]
 
 g :: G ()
-g = fromMaybe G_Nop $ inlineLambdas $ fst $ genG ectx pr3
+g = fromMaybe G_Nop $ inlineLambdas $ fst $ genG ectx pr3_old
 
 nodes = "var nodes = " ++ (B.unpack $ encode $ serializeG g)
 
