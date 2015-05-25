@@ -107,3 +107,75 @@ serializeG g = runST $ do
                                ]
                   ]
 
+serializeE :: G a -> [(Int, Int)]
+serializeE g = runST $ do
+  nid   <- newSTRef (0 :: Int)
+  eid   <- newSTRef (0 :: Int)
+  nmap  <- newSTRef M.empty
+  verts <- newSTRef M.empty
+  edges <- newSTRef []
+
+  let insNode x obj f = do
+        xid <- case x of
+          Just x' -> M.lookup x' <$> readSTRef nmap
+          Nothing -> return Nothing
+
+        case xid of
+          Just xid' -> return xid'
+          Nothing   -> do
+            xid' <- readSTRef nid
+
+            modifySTRef nid (+1)
+            modifySTRef verts (M.insert xid' $ object $ [ "id" .= ("n" ++ show xid'), "size" .= (3 :: Int) ] ++ obj)
+
+            f xid'
+
+            case x of
+              Just x' -> modifySTRef nmap (M.insert x' xid')
+              Nothing -> return ()
+
+            return xid'
+
+      insEdges fromId toG = do
+        toIds <- nub <$> mapM ser toG
+
+        forM toIds $ \toId -> do
+          eid' <- readSTRef eid
+          modifySTRef eid (+1)
+          modifySTRef edges ((fromId, toId):)
+
+        return toIds
+
+      ser (G_Const c) = insNode Nothing [ "label" .= ("const " ++ c) ] $ \_ -> return ()
+      ser (G_ExtRef x) = insNode (Just x) [ "label" .= ("extrn " ++ x) ] $ \_ -> return ()
+      ser (G_Call f xs) = do
+        let isRef (G_ExtRef n) = Just n
+            isRef _            = Nothing
+        insNode Nothing [ "shape" .= ("box" :: T.Text), "label" .= (fromMaybe "call" (isRef f)) ] $ \xid -> do
+          if isJust $ isRef f
+            then insEdges xid xs
+            else insEdges xid (f:xs)
+      ser (G_Lambda ns f) = do
+        -- insNode Nothing [ "label" .= ("\\" ++ (intercalate "," ns) ++ " ->") ] $ \xid -> insEdges xid [f]
+        insNode Nothing [ "label" .= ("\\" :: String ) ] $ \xid -> insEdges xid [f]
+      ser (G_Decl x s) = do
+        insNode (Just $ "var " ++ x) [ "label" .= ("var " ++ x) ] $ \xid -> insEdges xid [s]
+      ser (G_Arg x) = do
+        insNode (Just $ "arg " ++ x) [ "label" .= ("arg " ++ x) ] $ \_ -> return ()
+      ser (G_Assign x s) = do
+        insNode (Just $ x ++ " =") [ "label" .= (x ++ " =") ] $ \xid -> insEdges xid [s]
+      ser (G_Return x) = do
+        insNode Nothing [ "shape" .= ("dot" :: T.Text), "label" .= ("" :: String) ] $ \xid -> insEdges xid [x]
+      ser (G_Ctrl x y) = do
+        insNode Nothing [ "label" .= ("ctrl" :: String) ] $ \xid -> do
+          insEdges xid [x]
+          insEdges xid [y]
+      ser (G_Nop) = insNode Nothing [ "label" .= ("nop" :: String) ] $ \_ ->  return ()
+
+  ser g
+
+  verts' <- readSTRef verts
+  edges' <- readSTRef edges
+
+  return edges'
+
