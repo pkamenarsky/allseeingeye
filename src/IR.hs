@@ -66,6 +66,9 @@ addEdgeM = undefined
 getVert :: l -> G2 l a -> [NodeId]
 getVert = undefined
 
+addNodeWithEdgeM :: NodeId -> k -> State (G2 l a) NodeId
+addNodeWithEdgeM = undefined
+
 getDecl :: String -> G2 l a -> Maybe NodeId
 getDecl = undefined
 
@@ -75,16 +78,18 @@ genG2fromE :: Ctx2 a -> E -> State (G2 Label a) NodeId
 genG2fromE ctx (Const x) = addNodeM "const"
 genG2fromE ctx (Ref r) = return $ ctx r
 genG2fromE ctx (Call f xs) = do
-  n  <- addNodeM "call"
-  fg <- genG2fromE ctx f
-  ns <- foldM (\ns x -> (:ns) <$> genG2fromE ctx x) [] xs
-  mapM_ (addEdgeM n) ns
+  n   <- addNodeM "call"
+  fn  <- genG2fromE ctx f
+  xns <- mapM (genG2fromE ctx) xs
+  addEdgeM n fn
+  mapM_ (addEdgeM n) xns
   return n
 genG2fromE ctx (Lambda ns f) = do
   n   <- addNodeM "lambda"
   nsm <- zip ns <$> mapM (\n -> addNodeM "arg") ns
   l   <- genG2fromS (\r -> fromMaybe (ctx r) $ lookup r nsm) f
   addEdgeM n l
+  mapM_ (addEdgeM n . snd) nsm
   return n
 
 genG2fromS :: Ctx2 a -> S -> State (G2 Label a) NodeId
