@@ -8,6 +8,7 @@ import           Control.Monad.State
 
 import           Data.Data
 import qualified Data.Map                     as M
+import           Data.Maybe
 import           Data.Typeable
 
 import           Data.Generics.Uniplate.Data
@@ -68,24 +69,26 @@ getVert = undefined
 getDecl :: String -> G2 l a -> Maybe NodeId
 getDecl = undefined
 
-type Ctx2 a = String -> State (G2 Label a) NodeId
+type Ctx2 a = String -> NodeId
 
 genG2fromE :: Ctx2 a -> E -> State (G2 Label a) NodeId
 genG2fromE ctx (Const x) = addNodeM "const"
-{-
-genG2fromE ctx (Ref r) | Just n' <- getDecl r undefined = return n'
-                       | otherwise              = addNodeM "extref"
--}
-genG2fromE ctx (Ref r) = ctx r
+genG2fromE ctx (Ref r) = return $ ctx r
 genG2fromE ctx (Call f xs) = do
   n  <- addNodeM "call"
   fg <- genG2fromE ctx f
   ns <- foldM (\ns x -> (:ns) <$> genG2fromE ctx x) [] xs
   mapM_ (addEdgeM n) ns
   return n
-{-
--- genG2fromE ctx (Lambda ns f) = G_Lambda ns (fst $ genG (\r -> if any (== r) ns then G_Arg r else ctx r) f)
--}
+genG2fromE ctx (Lambda ns f) = do
+  n   <- addNodeM "lambda"
+  nsm <- zip ns <$> mapM (\n -> addNodeM "arg") ns
+  l   <- genG2fromS (\r -> fromMaybe (ctx r) $ lookup r nsm) f
+  addEdgeM n l
+  return n
+
+genG2fromS :: Ctx2 a -> S -> State (G2 Label a) NodeId
+genG2fromS = undefined
 
 instance Graph (G a) String where
   node (G_Const c)    = ("const " ++ c, [])
