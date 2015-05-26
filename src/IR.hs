@@ -3,6 +3,8 @@
 module IR where
 
 import           Control.Applicative          ((<$>), (<*>), pure)
+import           Control.Monad
+import           Control.Monad.State
 
 import           Data.Data
 import qualified Data.Map                     as M
@@ -38,6 +40,52 @@ data G a = G_Const String
          | G_Ctrl (G a) (G a)
          | G_Nop
          deriving (Eq, Ord, Data, Typeable, Show)
+
+type Label = String
+
+type NodeId = Int
+
+data G2 l a = G2 [(NodeId, l)] [(NodeId, NodeId)]
+
+emptyG2 :: G2 l a
+emptyG2 = undefined
+
+addEdge :: NodeId -> NodeId -> G2 l a -> G2 l a
+addEdge = undefined
+
+addNode :: l -> G2 l a -> (NodeId, G2 l a)
+addNode = undefined
+
+addNodeM :: l -> State (G2 l a) NodeId
+addNodeM = undefined
+
+addEdgeM :: NodeId -> NodeId -> State (G2 l a) ()
+addEdgeM = undefined
+
+getVert :: l -> G2 l a -> [NodeId]
+getVert = undefined
+
+getDecl :: String -> G2 l a -> Maybe NodeId
+getDecl = undefined
+
+type Ctx2 a = String -> State (G2 Label a) NodeId
+
+genG2fromE :: Ctx2 a -> E -> State (G2 Label a) NodeId
+genG2fromE ctx (Const x) = addNodeM "const"
+{-
+genG2fromE ctx (Ref r) | Just n' <- getDecl r undefined = return n'
+                       | otherwise              = addNodeM "extref"
+-}
+genG2fromE ctx (Ref r) = ctx r
+genG2fromE ctx (Call f xs) = do
+  n  <- addNodeM "call"
+  fg <- genG2fromE ctx f
+  ns <- foldM (\ns x -> (:ns) <$> genG2fromE ctx x) [] xs
+  mapM_ (addEdgeM n) ns
+  return n
+{-
+-- genG2fromE ctx (Lambda ns f) = G_Lambda ns (fst $ genG (\r -> if any (== r) ns then G_Arg r else ctx r) f)
+-}
 
 instance Graph (G a) String where
   node (G_Const c)    = ("const " ++ c, [])
@@ -99,6 +147,12 @@ inlineLambdas g@(G_Assign n x) = G_Assign <$> pure n <*> inlineLambdas x
 inlineLambdas g@(G_Return x)   = G_Return <$> inlineLambdas x
 inlineLambdas g@(G_Ctrl i x)   = G_Ctrl <$> inlineLambdas i <*> inlineLambdas x
 inlineLambdas g@(G_Nop)        = Just $ g
+
+incomingEdges :: G a -> M.Map (G a) Int
+incomingEdges = undefined
+
+simplify :: Data a => G a -> G a
+simplify = undefined
 
 type RefCtx = [Name]
 

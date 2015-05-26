@@ -24,12 +24,12 @@ executable allseeingeye
                        aeson,
                        bytestring,
                        containers,
-                       unordered-containers,
                        language-ecmascript,
                        language-ecmascript-analysis,
                        mtl,
                        random,
                        text,
-                       uniplate
+                       uniplate,
+                       unordered-containers
   hs-source-dirs:      src
   default-language:    Haskell2010
