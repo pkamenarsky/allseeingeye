@@ -144,6 +144,30 @@ genG2fromS ctx (Ctrl x s) = do
   addEdgeM nid gs
   return (nid, ctx')
 
+-- inlineLambdasG2 :: G2 Label a -> G2 Label a
+inlineLambdasG2 (G2 _ ns es) = matchCDL
+  where
+    nmap     = M.fromList ns
+
+    esin n   = filter ((== n) . snd) es
+    esout n  = filter ((== n) . fst) es
+
+    outmap   = M.fromListWith (++) [ (e1, [e2]) | (e1, e2) <- es ]
+
+    matchCL  = [ e | e@(e1, e2) <- es
+                   , Just (L_Call)     <- [M.lookup e1 nmap]
+                   , Just (L_Lambda _) <- [M.lookup e2 nmap]
+               ]
+
+    matchCDL = [ (e1, e2, e3)
+               | e@(e1, e2) <- es
+               , Just (L_Call)     <- [M.lookup e1 nmap]
+               , Just (L_Decl _)   <- [M.lookup e2 nmap]
+               , Just es           <- [M.lookup e2 outmap]
+               , e3 <- es
+               , Just (L_Lambda _) <- [M.lookup e3 nmap]
+               ]
+
 type Ctx a = String -> G a
 
 ectx s = G_ExtRef s
