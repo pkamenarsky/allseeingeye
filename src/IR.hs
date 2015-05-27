@@ -120,7 +120,7 @@ genG2fromS ctx (Decl n x) = do
   addEdgeM nid eid
   return (nid, \r -> if r == n then Just nid else ctx r)
 genG2fromS ctx (Assign n x) = do
-  nid <- addNodeM (L_Decl n)
+  nid <- addNodeM (L_Assign n)
   eid <- genG2fromE ctx x
   addEdgeM nid eid
   return (nid, \r -> if r == n then Just nid else ctx r)
