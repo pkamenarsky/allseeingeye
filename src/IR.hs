@@ -44,6 +44,7 @@ data G a = G_Const String
 
 data Label = L_Const String
            | L_ExtRef String
+           | L_ClosureRef
            | L_Call
            | L_Lambda [Name]
            | L_Decl Name
@@ -108,7 +109,9 @@ genG2fromE ctx (Call f xs) = do
 genG2fromE ctx (Lambda ns f) = do
   n      <- addNodeM (L_Lambda ns)
   nsm    <- zip ns <$> mapM (\n -> addNodeM (L_Arg n)) ns
-  (l, _) <- genG2fromS (\r -> lookup r nsm <|> ctx r) f
+  -- L_ClosureRef?
+  -- (l, _) <- genG2fromS (\r -> lookup r nsm <|> ctx r) f
+  (l, _) <- genG2fromS (\r -> lookup r nsm) f
   addEdgeM n l
   -- mapM_ (addEdgeM n . snd) nsm
   return n
@@ -145,42 +148,42 @@ genG2fromS ctx (Ctrl x s) = do
   return (nid, ctx')
 
 removeSubgraph :: NodeId -> G2 l a -> G2 l a
-removeSubgraph n (G2 next ns es) = G2 next (M.toList ns') [ (e1, e2) | (e1, es) <- M.toList es', e2 <- es ]
+removeSubgraph n (G2 next ns es) = G2 next (M.toList ns') [ (e1, e2) | (e2, es) <- M.toList es', e1 <- es ]
   where
+    outmap   = M.fromListWith (++) [ (e1, [e2]) | (e1, e2) <- es ]
+
     (ns', es') = go ( M.fromList ns
-                    , M.fromListWith (++) [ (e1, [e2]) | (e1, e2) <- es ]
+                    , M.fromListWith (++) [ (e2, [e1]) | (e1, e2) <- es ]
                     ) n
 
-    go (nmap, outmap) n' = foldl go (M.delete n' nmap, M.delete n' outmap)
-                                    (fromMaybe [] $ M.lookup n' outmap)
+    go (nmap, inmap) n' = foldl go (M.delete n' nmap, M.delete n' inmap)
+                                   (fromMaybe [] $ M.lookup n' outmap)
 
 -- inlineLambdasG2 :: G2 Label a -> G2 Label a
 inlineLambdasG2 (G2 _ ns es) = matchCDL
   where
     nmap     = M.fromList ns
 
-    esin n   = filter ((== n) . snd) es
-    esout n  = filter ((== n) . fst) es
-
     outmap   = M.fromListWith (++) [ (e1, [e2]) | (e1, e2) <- es ]
+    inmap    = M.fromListWith (++) [ (e2, [e1]) | (e1, e2) <- es ]
 
     matchCL  = [ e | e@(e1, e2) <- es
                    , Just (L_Call)     <- [M.lookup e1 nmap]
                    , Just (L_Lambda _) <- [M.lookup e2 nmap]
                ]
 
-    matchCDL = [ (e1, e2, e3, e4)
-               | e@(e1, e2) <- es
+    matchCDL = [ (ei, (e1, e2, e3, e4))
+               | (e1, e2) <- es
                , Just (L_Call)     <- [M.lookup e1 nmap]
                , Just (L_Decl _)   <- [M.lookup e2 nmap]
 
-               , Just es           <- [M.lookup e2 outmap]
-               , e3 <- es
+               , e3                <- fromMaybe [] $ M.lookup e2 outmap
                , Just (L_Lambda _) <- [M.lookup e3 nmap]
 
-               , Just es2          <- [M.lookup e3 outmap]
-               , e4 <- es2
+               , e4                <- fromMaybe [] $ M.lookup e3 outmap
                , Just L_Return     <- [M.lookup e4 nmap]
+
+               , ei                <- fromMaybe [] $ M.lookup e1 inmap
                ]
 
 type Ctx a = String -> G a

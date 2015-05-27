@@ -50,7 +50,8 @@ pr3 = Block
        , Decl "x" (Const "5")
        , Decl "y" (Const "7")
        , Decl "z" (Const "8")
-       , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
+       -- , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
+       , Decl "writeFile" (Lambda ["name", "contents"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
        , Assign "world" (Call (Ref "rand") [Ref "x", Ref "world"])
        , Assign "world" (Call (Ref "writeFile") [Ref "y", Ref "x", Ref "world"])
        , Return (Call (Ref "IO") [Call (Ref "+") [Ref "z", Ref "x", Ref "y"], Ref "c", Ref "world"])
@@ -68,7 +69,9 @@ pr4 = Block
 g :: G2 Label ()
 g = execState (genG2fromS ectx2 pr3) emptyG2
 
-nodes = "var nodes = " ++ (B.unpack $ encode g)
+ge = removeSubgraph 16 g
+
+nodes = "var nodes = " ++ (B.unpack $ encode ge)
 
 {-
 g :: G ()
