@@ -110,7 +110,7 @@ genG2fromE ctx (Lambda ns f) = do
   nsm    <- zip ns <$> mapM (\n -> addNodeM (L_Arg n)) ns
   (l, _) <- genG2fromS (\r -> lookup r nsm <|> ctx r) f
   addEdgeM n l
-  mapM_ (addEdgeM n . snd) nsm
+  -- mapM_ (addEdgeM n . snd) nsm
   return n
 
 genG2fromS :: Ctx2 a -> S -> (State (G2 Label a)) (NodeId, Ctx2 a)
@@ -128,7 +128,9 @@ genG2fromS ctx (Block ss) = go ctx ss
   where
     go ctx [] = (,ctx) <$> addNodeM L_Nop
     go ctx (x@(Return _):_) = genG2fromS ctx x
-    go ctx (x:xs) = genG2fromS ctx x >> go ctx xs
+    go ctx (x:xs) = do
+      (_, ctx') <- genG2fromS ctx x
+      go ctx' xs
 genG2fromS ctx (Return x) = do
   nid <- addNodeM L_Return
   eid <- genG2fromE ctx x

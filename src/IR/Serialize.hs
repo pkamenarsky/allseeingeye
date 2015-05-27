@@ -183,7 +183,7 @@ instance ToJSON Label where
   toJSON (L_Const n)   = toJSON $ "const " ++ n
   toJSON (L_ExtRef n)  = toJSON $ "extref " ++ n
   toJSON (L_Call)      = toJSON ("call" :: String)
-  toJSON (L_Lambda ns) = toJSON $ "\\" ++ intercalate " -> " ns
+  toJSON (L_Lambda ns) = toJSON ("\\" :: String)
   toJSON (L_Decl n)    = toJSON $ "decl " ++ n
   toJSON (L_Arg n)     = toJSON $ "arg " ++ n
   toJSON (L_Assign n)  = toJSON $ n ++ " ="
