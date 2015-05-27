@@ -16,6 +16,8 @@ import           Data.Generics.Uniplate.Data
 
 import           Graph
 
+import Debug.Trace
+
 type Name = String
 
 data CtrlType
@@ -198,7 +200,7 @@ removeOrphanDecls (G2 next ns es) = G2 next ns' es'
     matchCL  = [ e | e@(e1, e2) <- es
                    , Just (L_Decl _) <- [M.lookup e1 nmap]
                    , Just (L_Decl _) <- [M.lookup e2 nmap]
-                   , (length $ maybeToList $ M.lookup e2 inmap) == 1
+                   , (length $ fromMaybe [] $ M.lookup e2 inmap) == 1
                ]
     rmvDecl (ns', es') (e1, e2)
              = (filter ((/= e2) . fst) ns', [ if e2 == re1 then (e1, re2) else (re1, re2) | (re1, re2) <- es' ])

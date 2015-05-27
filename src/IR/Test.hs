@@ -48,7 +48,7 @@ pr3 = Block
        , Decl "b" (Const "8")
        , Decl "b2" (Ref "b")
        , Decl "c" (Call (Ref "*") [Ref "a", Ref "b2"])
-       , Decl "x" (Ref "b")
+       , Decl "x" (Const "6")
        , Decl "y" (Const "7")
        , Decl "z" (Const "8")
        -- , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
@@ -71,8 +71,8 @@ g :: G2 Label ()
 g = execState (genG2fromS ectx2 pr3) emptyG2
 
 -- ge = removeSubgraph 16 g
--- ge = removeOrphanDecls g
-ge = g
+ge = removeOrphanDecls g
+-- ge = g
 
 nodes = "var nodes = " ++ (B.unpack $ encode ge)
 
