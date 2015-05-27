@@ -7,6 +7,7 @@ import           Control.Monad
 import           Control.Monad.State
 
 import           Data.Data
+import           Data.List
 import qualified Data.Map                     as M
 import           Data.Maybe
 import           Data.Typeable
@@ -185,6 +186,25 @@ inlineLambdasG2 (G2 _ ns es) = matchCDL
 
                , ei                <- fromMaybe [] $ M.lookup e1 inmap
                ]
+
+removeOrphanDecls :: G2 Label a -> G2 Label a
+removeOrphanDecls (G2 next ns es) = G2 next ns' es'
+  where
+    inmap    = M.fromListWith (++) [ (e2, [e1]) | (e1, e2) <- es ]
+    outmap   = M.fromListWith (++) [ (e1, [e2]) | (e1, e2) <- es ]
+
+    nmap     = M.fromList ns
+
+    matchCL  = [ e | e@(e1, e2) <- es
+                   , Just (L_Decl _) <- [M.lookup e1 nmap]
+                   , Just (L_Decl _) <- [M.lookup e2 nmap]
+                   , (length $ maybeToList $ M.lookup e2 inmap) == 1
+               ]
+    rmvDecl (ns', es') (e1, e2)
+             = (filter ((/= e2) . fst) ns', [ if e2 == re1 then (e1, re2) else (re1, re2) | (re1, re2) <- es' ])
+
+    (ns', es') = foldl rmvDecl (ns, es) matchCL
+
 
 type Ctx a = String -> G a
 
