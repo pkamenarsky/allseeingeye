@@ -1,5 +1,7 @@
 module IR.Test where
 
+import           Control.Monad.State
+
 import           Data.Aeson
 import qualified Data.ByteString.Lazy.Char8     as B
 import           Data.List
@@ -63,6 +65,12 @@ pr4 = Block
        , Return (Call (Const "IO") [Call (Const "+") [getLocal "x", getLocal "y"], getLocal "world"])
        ]
 
+g :: G2 Label ()
+g = execState (genG2fromS ectx2 pr3) emptyG2
+
+nodes = "var nodes = " ++ (B.unpack $ encode g)
+
+{-
 g :: G ()
 g = fromMaybe G_Nop $ inlineLambdas $ fst $ genG ectx pr3_old
 
@@ -72,3 +80,4 @@ ts :: [String]
 ts = topsort g
 
 pts = intercalate " -> " ts
+-}

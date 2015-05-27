@@ -179,3 +179,26 @@ serializeE g = runST $ do
 
   return edges'
 
+instance ToJSON Label where
+  toJSON (L_Const n)   = toJSON $ "const " ++ n
+  toJSON (L_ExtRef n)  = toJSON $ "extref " ++ n
+  toJSON (L_Call)      = toJSON ("call" :: String)
+  toJSON (L_Lambda ns) = toJSON $ "\\" ++ intercalate " -> " ns
+  toJSON (L_Decl n)    = toJSON $ "decl " ++ n
+  toJSON (L_Arg n)     = toJSON $ "arg " ++ n
+  toJSON (L_Assign n)  = toJSON $ n ++ " ="
+  toJSON (L_Return)    = toJSON ("return" :: String)
+  toJSON (L_Ctrl)      = toJSON ("ctrl" :: String)
+  toJSON (L_Nop)       = toJSON ("nop" :: String)
+
+instance (ToJSON l) => ToJSON (G2 l a) where
+  toJSON (G2 _ ns es) = object
+    [ "nodes" .= [ object [ "id"    .= ("n" ++ show nid)
+                          , "label" .= toJSON l
+                          ]
+                 | (nid, l) <- ns
+                 ]
+    , "edges" .= [ object [ "from" .= ("n" ++ show e1), "to" .= ("n" ++ show e2) ]
+                 | (e1, e2) <- es
+                 ]
+    ]
