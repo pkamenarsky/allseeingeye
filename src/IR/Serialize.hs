@@ -191,10 +191,11 @@ instance ToJSON Label where
   toJSON (L_Ctrl)      = toJSON ("ctrl" :: String)
   toJSON (L_Nop)       = toJSON ("nop" :: String)
 
-instance (ToJSON l) => ToJSON (G2 l a) where
+instance (ToJSON l, Show l) => ToJSON (G2 l a) where
   toJSON (G2 _ ns es) = object
     [ "nodes" .= [ object [ "id"    .= ("n" ++ show nid)
-                          , "label" .= toJSON l
+                          , "label" .= (show nid ++ ": " ++ show l)
+                          -- , "label" .= toJSON l
                           ]
                  | (nid, l) <- ns
                  ]

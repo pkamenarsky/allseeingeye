@@ -159,13 +159,18 @@ inlineLambdasG2 (G2 _ ns es) = matchCDL
                    , Just (L_Lambda _) <- [M.lookup e2 nmap]
                ]
 
-    matchCDL = [ (e1, e2, e3)
+    matchCDL = [ (e1, e2, e3, e4)
                | e@(e1, e2) <- es
                , Just (L_Call)     <- [M.lookup e1 nmap]
                , Just (L_Decl _)   <- [M.lookup e2 nmap]
+
                , Just es           <- [M.lookup e2 outmap]
                , e3 <- es
                , Just (L_Lambda _) <- [M.lookup e3 nmap]
+
+               , Just es2          <- [M.lookup e3 outmap]
+               , e4 <- es2
+               , Just L_Return     <- [M.lookup e4 nmap]
                ]
 
 type Ctx a = String -> G a
