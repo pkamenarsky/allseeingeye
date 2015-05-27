@@ -2,7 +2,7 @@
 
 module IR where
 
-import           Control.Applicative          ((<$>), (<*>), pure)
+import           Control.Applicative          ((<$>), (<*>), (<|>), pure)
 import           Control.Monad
 import           Control.Monad.State
 
@@ -42,58 +42,16 @@ data G a = G_Const String
          | G_Nop
          deriving (Eq, Ord, Data, Typeable, Show)
 
-type Label = String
-
-type NodeId = Int
-
-data G2 l a = G2 [(NodeId, l)] [(NodeId, NodeId)]
-
-emptyG2 :: G2 l a
-emptyG2 = undefined
-
-addEdge :: NodeId -> NodeId -> G2 l a -> G2 l a
-addEdge = undefined
-
-addNode :: l -> G2 l a -> (NodeId, G2 l a)
-addNode = undefined
-
-addNodeM :: l -> State (G2 l a) NodeId
-addNodeM = undefined
-
-addEdgeM :: NodeId -> NodeId -> State (G2 l a) ()
-addEdgeM = undefined
-
-getVert :: l -> G2 l a -> [NodeId]
-getVert = undefined
-
-addNodeWithEdgeM :: NodeId -> k -> State (G2 l a) NodeId
-addNodeWithEdgeM = undefined
-
-getDecl :: String -> G2 l a -> Maybe NodeId
-getDecl = undefined
-
-type Ctx2 a = String -> NodeId
-
-genG2fromE :: Ctx2 a -> E -> State (G2 Label a) NodeId
-genG2fromE ctx (Const x) = addNodeM "const"
-genG2fromE ctx (Ref r) = return $ ctx r
-genG2fromE ctx (Call f xs) = do
-  n   <- addNodeM "call"
-  fn  <- genG2fromE ctx f
-  xns <- mapM (genG2fromE ctx) xs
-  addEdgeM n fn
-  mapM_ (addEdgeM n) xns
-  return n
-genG2fromE ctx (Lambda ns f) = do
-  n   <- addNodeM "lambda"
-  nsm <- zip ns <$> mapM (\n -> addNodeM "arg") ns
-  l   <- genG2fromS (\r -> fromMaybe (ctx r) $ lookup r nsm) f
-  addEdgeM n l
-  mapM_ (addEdgeM n . snd) nsm
-  return n
-
-genG2fromS :: Ctx2 a -> S -> State (G2 Label a) NodeId
-genG2fromS = undefined
+data Label = L_Const String
+           | L_ExtRef String
+           | L_Call
+           | L_Lambda [Name]
+           | L_Decl Name
+           | L_Arg Name
+           | L_Assign Name
+           | L_Return
+           | L_Ctrl
+           deriving Show
 
 instance Graph (G a) String where
   node (G_Const c)    = ("const " ++ c, [])
@@ -107,6 +65,55 @@ instance Graph (G a) String where
   node (G_Return x)   = ("return", [x])
   node (G_Ctrl i x)   = ("ctrl", (i:[x]))
   node (G_Nop)        = ("nop", [])
+
+type NodeId = Int
+
+data G2 l a = G2 Int [(NodeId, l)] [(NodeId, NodeId)] deriving Show
+
+emptyG2 :: G2 l a
+emptyG2 = G2 0 [] []
+
+addEdge :: NodeId -> NodeId -> G2 l a -> G2 l a
+addEdge e1 e2 (G2 n ns es) = G2 n ns ((e1, e2):es)
+
+addNode :: l -> G2 l a -> (NodeId, G2 l a)
+addNode l (G2 n ns es) = (n, G2 (n + 1) ((n, l):ns) es)
+
+addNodeM :: l -> State (G2 l a) NodeId
+addNodeM l = do
+  g <- get
+  let (n, g') = addNode l g
+  put g'
+  return n
+
+addEdgeM :: NodeId -> NodeId -> State (G2 l a) ()
+addEdgeM e1 e2 = modify (addEdge e1 e2)
+
+type Ctx2 a = String -> Maybe NodeId
+
+ectx2 _ = Nothing
+
+genG2fromE :: Ctx2 a -> E -> State (G2 Label a) NodeId
+genG2fromE ctx (Const x) = addNodeM (L_Const x)
+genG2fromE ctx (Ref r) | Just n <- ctx r = return n
+                       | otherwise       = addNodeM (L_ExtRef r)
+genG2fromE ctx (Call f xs) = do
+  n   <- addNodeM L_Call
+  fn  <- genG2fromE ctx f
+  xns <- mapM (genG2fromE ctx) xs
+  addEdgeM n fn
+  mapM_ (addEdgeM n) xns
+  return n
+genG2fromE ctx (Lambda ns f) = do
+  n   <- addNodeM (L_Lambda ns)
+  nsm <- zip ns <$> mapM (\n -> addNodeM (L_Arg n)) ns
+  l   <- genG2fromS (\r -> lookup r nsm <|> ctx r) f
+  addEdgeM n l
+  mapM_ (addEdgeM n . snd) nsm
+  return n
+
+genG2fromS :: Ctx2 a -> S -> State (G2 Label a) NodeId
+genG2fromS = undefined
 
 type Ctx a = String -> G a
 
