@@ -144,6 +144,16 @@ genG2fromS ctx (Ctrl x s) = do
   addEdgeM nid gs
   return (nid, ctx')
 
+removeSubgraph :: NodeId -> G2 l a -> G2 l a
+removeSubgraph n (G2 next ns es) = G2 next (M.toList ns') [ (e1, e2) | (e1, es) <- M.toList es', e2 <- es ]
+  where
+    (ns', es') = go ( M.fromList ns
+                    , M.fromListWith (++) [ (e1, [e2]) | (e1, e2) <- es ]
+                    ) n
+
+    go (nmap, outmap) n' = foldl go (M.delete n' nmap, M.delete n' outmap)
+                                    (fromMaybe [] $ M.lookup n' outmap)
+
 -- inlineLambdasG2 :: G2 Label a -> G2 Label a
 inlineLambdasG2 (G2 _ ns es) = matchCDL
   where
