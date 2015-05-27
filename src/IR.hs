@@ -128,9 +128,7 @@ genG2fromS ctx (Block ss) = go ctx ss
   where
     go ctx [] = (,ctx) <$> addNodeM L_Nop
     go ctx (x@(Return _):_) = genG2fromS ctx x
-    go ctx (x:xs) = do
-      (nid, _) <- genG2fromS ctx x
-      return (nid, ctx)
+    go ctx (x:xs) = genG2fromS ctx x >> go ctx xs
 genG2fromS ctx (Return x) = do
   nid <- addNodeM L_Return
   eid <- genG2fromE ctx x
