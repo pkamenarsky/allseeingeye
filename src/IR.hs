@@ -51,6 +51,7 @@ data Label = L_Const String
            | L_Assign Name
            | L_Return
            | L_Ctrl
+           | L_Nop
            deriving Show
 
 instance Graph (G a) String where
@@ -105,15 +106,43 @@ genG2fromE ctx (Call f xs) = do
   mapM_ (addEdgeM n) xns
   return n
 genG2fromE ctx (Lambda ns f) = do
-  n   <- addNodeM (L_Lambda ns)
-  nsm <- zip ns <$> mapM (\n -> addNodeM (L_Arg n)) ns
-  l   <- genG2fromS (\r -> lookup r nsm <|> ctx r) f
+  n      <- addNodeM (L_Lambda ns)
+  nsm    <- zip ns <$> mapM (\n -> addNodeM (L_Arg n)) ns
+  (l, _) <- genG2fromS (\r -> lookup r nsm <|> ctx r) f
   addEdgeM n l
   mapM_ (addEdgeM n . snd) nsm
   return n
 
-genG2fromS :: Ctx2 a -> S -> State (G2 Label a) NodeId
-genG2fromS = undefined
+genG2fromS :: Ctx2 a -> S -> (State (G2 Label a)) (NodeId, Ctx2 a)
+genG2fromS ctx (Decl n x) = do
+  nid <- addNodeM (L_Decl n)
+  eid <- genG2fromE ctx x
+  addEdgeM nid eid
+  return (nid, \r -> if r == n then Just nid else ctx r)
+genG2fromS ctx (Assign n x) = do
+  nid <- addNodeM (L_Decl n)
+  eid <- genG2fromE ctx x
+  addEdgeM nid eid
+  return (nid, \r -> if r == n then Just nid else ctx r)
+genG2fromS ctx (Block ss) = go ctx ss
+  where
+    go ctx [] = (,ctx) <$> addNodeM L_Nop
+    go ctx (x@(Return _):_) = genG2fromS ctx x
+    go ctx (x:xs) = do
+      (nid, _) <- genG2fromS ctx x
+      return (nid, ctx)
+genG2fromS ctx (Return x) = do
+  nid <- addNodeM L_Return
+  eid <- genG2fromE ctx x
+  addEdgeM nid eid
+  return (nid, ctx)
+genG2fromS ctx (Ctrl x s) = do
+  nid        <- addNodeM L_Ctrl
+  ge         <- genG2fromE ctx x
+  (gs, ctx') <- genG2fromS ctx s
+  addEdgeM nid ge
+  addEdgeM nid gs
+  return (nid, ctx')
 
 type Ctx a = String -> G a
 
