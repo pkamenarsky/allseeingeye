@@ -162,6 +162,12 @@ removeSubgraph n (G2 next ns es) = G2 next (M.toList ns') [ (e1, e2) | (e2, es) 
     go (nmap, inmap) n' = foldl go (M.delete n' nmap, M.delete n' inmap)
                                    (fromMaybe [] $ M.lookup n' outmap)
 
+matchNodes :: MonadPlus m => (l -> Bool) -> m (NodeId, l) -> m NodeId
+matchNodes f ns = do
+  (nid, l) <- ns
+  guard $ f l
+  return nid
+
 -- inlineLambdasG2 :: G2 Label a -> G2 Label a
 inlineLambdasG2 (G2 _ ns es) = matchCDL
   where
@@ -196,6 +202,9 @@ removeOrphanDecls (G2 next ns es) = G2 next ns' es'
     outmap   = M.fromListWith (++) [ (e1, [e2]) | (e1, e2) <- es ]
 
     nmap     = M.fromList ns
+
+    mdecl (L_Decl _) = True
+    mdecl _          = False
 
     matchCL  = [ e | e@(e1, e2) <- es
                    , Just (L_Decl _) <- [M.lookup e1 nmap]
