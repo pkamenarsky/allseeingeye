@@ -57,3 +57,21 @@ pr3 = P
        , Assign "world" (Call (Ref "writeFile") [Ref "y", Ref "x", Ref "world"])
        , Return (Call (Ref "IO") [Call (Ref "+") [Ref "z", Ref "x", Ref "y"], Ref "c", Ref "world"])
        ]
+
+pr4 = Lambda ["world"] $ P
+       [ Decl "x" (Const "5")
+       , Decl "y" (Const "6")
+       , Assign "world" (Call (Ref "f") [Ref "x", Ref "world"])
+       , Assign "world" (Call (Ref "g") [Ref "y", Ref "world"])
+       , Return (Ref "world")
+       ]
+
+l3 = sToP pr3
+
+l1 = sToP pr1
+
+l2 = sToP pr2
+
+l = sToP pr
+
+l4 = sToE pr4
