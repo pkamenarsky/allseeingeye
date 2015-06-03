@@ -26,12 +26,25 @@ data E = Const String
        | Ref String
        | Call E [E]
        | Lambda [Name] S
+       deriving (Eq, Ord, Data, Typeable)
 
 data S = Decl Name E
        | Assign Name E
        | Block [S]
        | Return E
        | Ctrl E S -- merge with block?
+       deriving (Eq, Ord, Data, Typeable)
+
+type Env = Name -> Maybe E
+
+eenv _ = Nothing
+
+inlineRef :: Env -> E -> E
+inlineRef env e'@(Const _)     = e'
+inlineRef env e'@(Ref n)       | Just inl <- env n = inl
+                               | otherwise         = e'
+inlineRef env (Call f xs)      = Call (inlineRef env f) (map (inlineRef env) xs)
+inlineRef env e'@(Lambda ns s) = e'
 
 data G a = G_Const String
          | G_ExtRef String
