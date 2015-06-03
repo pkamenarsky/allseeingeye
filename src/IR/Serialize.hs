@@ -24,7 +24,7 @@ instance Show E where
 instance Show S where
   show (Decl a x) = "var " ++ a ++ " = " ++ show x
   show (Assign a x) = a ++ " = " ++ show x
-  show (Block ss) = "{\n" ++ intercalate "\n" (map show ss) ++ "\n}"
+  show (Block (P ss)) = "{\n" ++ intercalate "\n" (map show ss) ++ "\n}"
   show (Return x) = "return " ++ show x
   show (Ctrl f xs) = "ctrl(" ++ show f ++ ")" ++ show xs
 

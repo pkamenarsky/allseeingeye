@@ -11,19 +11,19 @@ import           Graph
 import           IR
 import           IR.Serialize
 
-pr2 = Block
+pr2 = Block $ P
        [ Decl "x" (Const "5")
        , Decl "y" (Const "6")
        , Return (Call (Const "+") [(Ref "x"), (Ref "y")])
        ]
 
-pr1 = Block
+pr1 = Block $ P
        [ Decl "x" (Const "5")
        , Decl "y" (Const "6")
        , Return (Call (Const "+") [Ref "x", Ref "x", Ref "y", Call (Const "-") [Ref "x", Ref "y"]])
        ]
 
-pr = Block
+pr = Block $ P
        [ Decl "world" (Const "world")
        , Decl "x" (Const "5")
        , Decl "y" (Const "6")
@@ -32,17 +32,17 @@ pr = Block
        , Return (Call (Const "IO") [Call (Const "+") [(Ref "world"), (Ref "x"), (Ref "y")], Ref "world"])
        ]
 
-pr3_old = Block
+pr3_old = Block $ P
        [ Decl "world" (Const "world")
        , Decl "x" (Const "5")
        , Decl "y" (Const "7")
-       , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
+       , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block $ P [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
        , Assign "world" (Call (Ref "rand") [Ref "x", Ref "world"])
        , Assign "world" (Call (Ref "writeFile") [Ref "y", Ref "x", Ref "world"])
        , Return (Call (Ref "IO") [Call (Ref "+") [Ref "x", Ref "y"], Ref "world"])
        ]
 
-pr3 = Block
+pr3 = Block $ P
        [ Decl "world" (Const "world")
        , Decl "a" (Const "8")
        , Decl "b" (Const "8")
@@ -51,8 +51,8 @@ pr3 = Block
        , Decl "x" (Const "6")
        , Decl "y" (Const "7")
        , Decl "z" (Const "8")
-       -- , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
-       , Decl "writeFile" (Lambda ["name", "contents"] (Block [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
+       -- , Decl "writeFile" (Lambda ["name", "contents", "world"] (Block $ P [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
+       , Decl "writeFile" (Lambda ["name", "contents"] (Block $ P [Return (Call (Ref "IO") [Ref "name", Ref "contents", Ref "world"])]))
        , Assign "world" (Call (Ref "rand") [Ref "x", Ref "world"])
        , Assign "world" (Call (Ref "writeFile") [Ref "y", Ref "x", Ref "world"])
        , Return (Call (Ref "IO") [Call (Ref "+") [Ref "z", Ref "x", Ref "y"], Ref "c", Ref "world"])
@@ -60,7 +60,7 @@ pr3 = Block
 
 getLocal x = Call (Const $ "local[" ++ x ++ "]") [Ref "locals"]
 
-pr4 = Block
+pr4 = Block $ P
        [ Decl "locals" (Const "locals + world")
        , Assign "locals" (Call (Const "rand") [getLocal "x", getLocal "world"])
        , Assign "locals" (Call (Const "writeFile") [getLocal "y", getLocal "x", getLocal "world"])

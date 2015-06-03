@@ -30,10 +30,22 @@ data E = Const String
 
 data S = Decl Name E
        | Assign Name E
-       | Block [S]
+       | Block P
        | Return E
        | Ctrl E S -- merge with block?
        deriving (Eq, Ord, Data, Typeable)
+
+data P = P [S] deriving (Eq, Ord, Data, Typeable)
+
+data L = Var Name
+       | App L L
+       | Lam Name L
+
+sToE :: E -> L
+sToE = undefined
+
+sToL :: S -> L
+sToL (Decl n e) = App (Lam n undefined) (Var n)
 
 type Env = Name -> Maybe E
 
@@ -143,7 +155,7 @@ genG2fromS ctx (Assign n x) = do
   eid <- genG2fromE ctx x
   addEdgeM nid eid
   return (nid, \r -> if r == n then Just nid else ctx r)
-genG2fromS ctx (Block ss) = go ctx ss
+genG2fromS ctx (Block (P ss)) = go ctx ss
   where
     go ctx [] = (,ctx) <$> addNodeM L_Nop
     go ctx (x@(Return _):_) = genG2fromS ctx x
@@ -243,7 +255,7 @@ genGfromE ctx (Lambda ns f) = G_Lambda ns (fst $ genG (\r -> if any (== r) ns th
 genG :: Ctx a -> S -> (G a, Ctx a)
 genG ctx (Decl n x) = let g = G_Decl n (genGfromE ctx x) in (g, \r -> if r == n then g else ctx r)
 genG ctx (Assign n x) = let g = G_Assign n (genGfromE ctx x) in (g, \r -> if r == n then g else ctx r)
-genG ctx (Block ss) = go ctx ss
+genG ctx (Block (P ss)) = go ctx ss
   where
     go ctx [] = (G_Nop, ctx)
     go ctx (x@(Return _):_) = genG ctx x
