@@ -29,3 +29,9 @@ instance Show S where
 
 instance Show P where
   show (P ss) = "{\n" ++ intercalate "\n" (map show ss) ++ "\n}"
+
+instance Show L where
+  show (Cnst c)   = c
+  show (Var n)    = n
+  show (App f x)  = show f ++ " " ++ show x
+  show (Lam n f)  = "(λ" ++ show n ++ "→ " ++ show f ++ ")"

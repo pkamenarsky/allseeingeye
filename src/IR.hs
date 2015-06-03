@@ -36,13 +36,20 @@ data S = Decl Name E
 
 data P = P [S] deriving (Eq, Ord, Data, Typeable)
 
-data L = Var Name
+data L = Cnst String
+       | Var Name
        | App L L
        | Lam Name L
 
 sToE :: E -> L
-sToE = undefined
+sToE (Const c)     = Cnst c
+sToE (Ref r)       = Var r
+sToE (Call f xs)   = foldl App (sToE f) (map sToE xs)
+sToE (Lambda ns p) = foldr Lam (sToP p) ns
 
-sToL :: S -> L
-sToL (Decl n e) = App (Lam n undefined) (Var n)
-
+sToP :: P -> L
+sToP (P [])              = error "no return"
+sToP (P (Decl n e:ps))   = App (Lam n (sToP (P ps))) (sToE e)
+sToP (P (Assign n e:ps)) = App (Lam n (sToP (P ps))) (sToE e)
+sToP (P (Return e:_))    = sToE e
+sToP (P (Ctrl e p:_))    = error "ctrl"
