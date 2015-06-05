@@ -4,15 +4,19 @@ import           Language.ECMAScript3.Syntax
 
 import           IR
 
+setA :: L -> Int -> L -> L
+setA arr i e = (App (App (App (Var "setA") arr) (Cnst $ show i)) e)
+
 convert :: Expression a -> L
 convert (StringLit a lit) = Cnst lit
 convert (RegexpLit a lit glb csi) = Cnst lit
 convert (NumLit a lit) = Cnst $ show lit
 convert (IntLit a lit) = Cnst $ show lit
 convert (BoolLit a lit) = Cnst $ show lit
+convert (NullLit a) = Var "null"
+convert (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convert $ head es))))
+                              (App (Var "newArray") (Var "world"))
 {-
-convert (NullLit a)
-convert (ArrayLit a [Expression a])
 convert (ObjectLit a [(Prop a, Expression a)])
 convert (ThisRef a)
 convert (VarRef a (Id a))
