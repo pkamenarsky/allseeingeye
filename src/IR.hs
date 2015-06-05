@@ -66,9 +66,12 @@ normalize :: L -> L
 normalize (Cnst c)  = (Cnst c)
 normalize (Var n)   = (Var n)
 normalize (App f x) = go (normalize f) (normalize x)
-  where go (Lam n e) x' = subst n e x'
+  where go (Lam n e) x' = subst n x' e
         go f' x'        = App f' x'
 normalize (Lam n f) = go (normalize f)
-  where go f'@(Var n') | n == n'   = Var n
+  where
+        {-
+        go f'@(Var n') | n == n'   = Var n
                        | otherwise = Lam n f'
+        -}
         go f' = Lam n f'

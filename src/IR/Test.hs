@@ -66,6 +66,15 @@ pr4 = Lambda ["world"] $ P
        , Return (Ref "world")
        ]
 
+pr5 = Lambda ["world"] $ P
+       [ Decl "x" (Const "5")
+       , Assign "world" (Call (Ref "f") [Ref "x", Ref "world"])
+       , Decl "z" (Const "6")
+       , Decl "y" (Ref "z")
+       , Assign "world" (Call (Ref "g") [Ref "y", Ref "world"])
+       , Return (Ref "world")
+       ]
+
 l3 = sToP pr3
 
 l1 = sToP pr1
@@ -75,3 +84,5 @@ l2 = sToP pr2
 l = sToP pr
 
 l4 = sToE pr4
+
+l5 = sToE pr5
