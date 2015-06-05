@@ -25,6 +25,7 @@ import           Language.ECMAScript3.Syntax
 import           Graph
 import           Match
 import qualified IR.Test                          as IR
+import qualified IR.JS                            as IRJ
 
 import Debug.Trace
 
