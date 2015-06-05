@@ -40,6 +40,7 @@ data L = Cnst String
        | Var Name
        | App L L
        | Lam Name L
+       deriving (Eq, Ord, Data, Typeable)
 
 sToE :: E -> L
 sToE (Const c)     = Cnst c
@@ -53,3 +54,21 @@ sToP (P (Decl n e:ps))   = App (Lam n (sToP (P ps))) (sToE e)
 sToP (P (Assign n e:ps)) = App (Lam n (sToP (P ps))) (sToE e)
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
+
+subst :: Name -> L -> L -> L
+subst _ _ e'@(Cnst _) = e'
+subst n e e'@(Var n') | n == n'   = e
+                      | otherwise = e'
+subst n e e'@(App f x)  = App (subst n e f) (subst n e x)
+subst n e e'@(Lam n' f) = Lam n' (subst n e f)
+
+normalize :: L -> L
+normalize (Cnst c)  = (Cnst c)
+normalize (Var n)   = (Var n)
+normalize (App f x) = go (normalize f) (normalize x)
+  where go (Lam n e) x' = subst n e x'
+        go f' x'        = App f' x'
+normalize (Lam n f) = go (normalize f)
+  where go f'@(Var n') | n == n'   = Var n
+                       | otherwise = Lam n f'
+        go f' = Lam n f'
