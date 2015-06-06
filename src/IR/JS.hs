@@ -19,6 +19,12 @@ import           IR
 setA :: L -> Int -> L -> L
 setA arr i e = (App (App (App (Var "setA") arr) (Cnst $ show i)) e)
 
+-- functio name, impure arguments (0 is this, -1 is world)
+type F = (String, [Int])
+
+fns :: [F]
+fns = [ ( "push", [0] ) ]
+
 prefixOp :: M.Map UnaryAssignOp (String, Bool)
 prefixOp = M.fromList [ (PrefixInc , ("inc", True ))
                       , (PostfixInc, ("inc", False))
@@ -64,10 +70,13 @@ convert (ListExpr a es) cnt | null es   = cnt
         isRef (BracketRef _ _ _) = True
         isRef (ThisRef _)        = True
         isRef _                  = False
-convert (CallExpr a f xs) cnt = foldl App (convert f undefined) (map (flip convert undefined) xs)
-{-
-convert (FuncExpr a (Maybe (Id a)) [Id a] [Statement a])
--}
+convert (CallExpr a f xs) cnt
+  -- what to do about the undefineds here?
+  = foldl App (convert f undefined) (map (flip convert undefined) xs)
+    where getName (VarRef _ (Id _ ref))                      = Just ref
+          getName (DotRef _ (VarRef _ (Id _ fn)) (Id _ ref)) = Just $ fn ++ "." ++ ref
+          getName _                                          = Nothing
+convert (FuncExpr a n xs ss) cnt = undefined
 
 unnestAssigns :: Data a => Expression a -> ([Expression a], Expression a, [Expression a])
 unnestAssigns e = case e of
