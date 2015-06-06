@@ -55,9 +55,17 @@ convert (CondExpr a (Expression a) (Expression a) (Expression a))
 -}
 convert (AssignExpr a op (LVar a' lv) e) cnt =
   let cnt' = App (Lam lv cnt) (convert e cnt') in cnt'
-convert (ListExpr a es) cnt = foldr convert cnt es
+convert (ListExpr a es) cnt | null es   = cnt
+                            | otherwise = foldr convert cnt (filter (not . isRef) (init es) ++ [last es])
+  -- we need to filter all useless refs inside the list, like "y" in
+  -- x++, y, z
+  where isRef (VarRef _ _)       = True
+        isRef (DotRef _ _ _)     = True
+        isRef (BracketRef _ _ _) = True
+        isRef (ThisRef _)        = True
+        isRef _                  = False
+convert (CallExpr a f xs) cnt = foldl App (convert f undefined) (map (flip convert undefined) xs)
 {-
-convert (CallExpr a (Expression a) [Expression a])
 convert (FuncExpr a (Maybe (Id a)) [Id a] [Statement a])
 -}
 
@@ -85,7 +93,7 @@ unnest e | null pre && null post = e
   where (pre, e', post) = unnestAssigns e
 
 --testExpr = case parse expression "" "x = [y = f(z = ++a)]" of
-testExpr = case parse expression "" "x = y = --z" of
+testExpr = case parse expression "" "x = rand(y, ++z)" of
   Right expr -> expr
   Left err   -> error $ show err
 

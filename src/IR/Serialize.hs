@@ -35,4 +35,4 @@ instance Show L where
   show (Var n)    = n
   show (Extrn n)  = "‹" ++ n ++ "›"
   show (App f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
-  show (Lam n f)  = "λ" ++ n ++ " → " ++ show f ++ ""
+  show (Lam n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
