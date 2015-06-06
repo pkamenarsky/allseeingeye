@@ -38,6 +38,7 @@ data P = P [S] deriving (Eq, Ord, Data, Typeable)
 
 data L = Cnst String
        | Var Name
+       | Extrn Name
        | App L L
        | Lam Name L
        deriving (Eq, Ord, Data, Typeable)
@@ -59,12 +60,14 @@ subst :: Name -> L -> L -> L
 subst _ _ e'@(Cnst _) = e'
 subst n e e'@(Var n') | n == n'   = e
                       | otherwise = e'
+subst _ _ e'@(Extrn _)  = e'
 subst n e e'@(App f x)  = App (subst n e f) (subst n e x)
 subst n e e'@(Lam n' f) = Lam n' (subst n e f)
 
 normalize :: L -> L
 normalize (Cnst c)  = (Cnst c)
 normalize (Var n)   = (Var n)
+normalize (Extrn n) = (Extrn n)
 normalize (App f x) = go (normalize f) (normalize x)
   where go (Lam n e) x' = subst n x' e
         go f' x'        = App f' x'

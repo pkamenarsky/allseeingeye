@@ -33,5 +33,6 @@ instance Show P where
 instance Show L where
   show (Cnst c)   = c
   show (Var n)    = n
+  show (Extrn n)  = "‹" ++ n ++ "›"
   show (App f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
-  show (Lam n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
+  show (Lam n f)  = "λ" ++ n ++ " → " ++ show f ++ ""

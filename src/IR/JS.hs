@@ -48,7 +48,7 @@ convert (NewExpr a (Expression a) {- constructor -} [Expression a])
 convert (PrefixExpr a PrefixOp (Expression a))
 -}
 convert (UnaryAssignExpr a op (LVar a' lv)) cnt =
-  (App (Lam lv cnt) (App (Var $ fst $ M.findWithDefault ("op", True) op prefixOp) (Var lv)))
+  (App (Lam lv cnt) (App (Extrn $ fst $ M.findWithDefault ("op", True) op prefixOp) (Var lv)))
 {-
 convert (InfixExpr a InfixOp (Expression a) (Expression a))
 convert (CondExpr a (Expression a) (Expression a) (Expression a))
