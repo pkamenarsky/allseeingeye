@@ -93,7 +93,7 @@ unnest e | null pre && null post = e
   where (pre, e', post) = unnestAssigns e
 
 --testExpr = case parse expression "" "x = [y = f(z = ++a)]" of
-testExpr = case parse expression "" "x = rand(y, ++z)" of
+testExpr = case parse expression "" "r = rand(y, ++z, world), world = fst(r), x = snd(r), tuple(world, x)" of
   Right expr -> expr
   Left err   -> error $ show err
 
