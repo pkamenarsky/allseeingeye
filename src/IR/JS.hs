@@ -1,5 +1,6 @@
 module IR.JS where
 
+import           Control.Arrow
 import           Control.Monad.State
 
 import           Data.Generics.Str
@@ -73,48 +74,43 @@ convert (BracketRef a (Expression a) {- container -} (Expression a) {- key -})
 convert (NewExpr a (Expression a) {- constructor -} [Expression a])
 convert (PrefixExpr a PrefixOp (Expression a))
 -}
-convert (UnaryAssignExpr a PrefixInc (LVar a' lv)) cnt = App (Lam lv cnt) ((Var lv))
+convert (UnaryAssignExpr a PrefixInc (LVar a' lv)) cnt =
+  App (Lam lv cnt) (App (Var "inc") (Var lv))
 {-
 convert (InfixExpr a InfixOp (Expression a) (Expression a))
 convert (CondExpr a (Expression a) (Expression a) (Expression a))
 -}
 convert (AssignExpr a op (LVar a' lv) e) cnt =
-  let cnt' = App (Lam lv cnt') (convert e cnt') in cnt'
+  let cnt' = App (Lam lv cnt) (convert e cnt') in cnt'
 convert (ListExpr a es) cnt = foldr convert cnt es
 {-
 convert (CallExpr a (Expression a) [Expression a])
 convert (FuncExpr a (Maybe (Id a)) [Id a] [Statement a])
 -}
 
-unnestAssigns :: Data a => Expression a -> State [Expression a] (Expression a)
+unnestAssigns :: Data a => Expression a -> State ([Expression a],[Expression a]) (Expression a)
 unnestAssigns = rewriteM $ \e -> case e of
   e'@(AssignExpr a op (LVar a' lv) (VarRef a'' ref)) -> do
-    modify (e':)
+    modify (first (e':))
+    return $ Just (VarRef a' (Id a' lv))
+  e'@(UnaryAssignExpr a PrefixInc (LVar a' lv)) -> do
+    modify (first (e':))
+    return $ Just (VarRef a' (Id a' lv))
+  e'@(UnaryAssignExpr a PostfixInc (LVar a' lv)) -> do
+    modify (second (e':))
     return $ Just (VarRef a' (Id a' lv))
   e -> return Nothing
 
 unnest :: Data a => Expression a -> Expression a
-unnest e = ListExpr (getAnnotation e) (reverse asgns ++ [e'])
-  where (e', asgns) = runState (unnestAssigns e) []
+unnest e = ListExpr (getAnnotation e) (reverse pre ++ reverse post ++ [e''])
+  where (e', (pre, post)) = runState (unnestAssigns e) ([], [])
+        e'' = case e' of
+          ListExpr a es -> last es
+          otherwise     -> e'
 
-{-
-unnestAssigns :: Data a => Expression a -> Expression a
-unnestAssigns e | null asgns' = e
-                -- | otherwise   = ListExpr (getAnnotation e) (asgns' ++ [e'])
-                | otherwise   = ListExpr (getAnnotation e) ([e'])
-  where (ch, f) = uniplate e
-        (ss, s) = strStructure ch
-        tr (AssignExpr a op (LVar a' lv) e)
-               = (VarRef a' (Id a' lv), Just (AssignExpr a op (LVar a' lv) $ unnestAssigns e))
-        tr e   = (unnestAssigns e, Nothing)
-        asgns  = map tr ss
-        asgns' = mapMaybe snd asgns
-        e'     = f $ s (map fst asgns)
--}
-
-testExpr = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (UnaryAssignExpr () PrefixInc (LVar () "x")),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
+testExpr = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (UnaryAssignExpr () PrefixInc (LVar () "x"))])
 testExpr2 = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (AssignExpr () OpAssign (LVar () "x") (VarRef () (Id () "z"))),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
 
-testConvert = convert testExpr (Lam "xxx" (Var "xxx"))
-testConvert2 = convert testExpr2 (Lam "xxx" (Var "xxx"))
+testConvert = convert (unnest testExpr) (Lam "xxx" (Var "xxx"))
+testConvert2 = convert (unnest testExpr2) (Lam "xxx" (Var "xxx"))
 
