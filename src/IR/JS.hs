@@ -60,17 +60,28 @@ unnestAssigns e = case e of
   e1@(AssignExpr a op (LVar a1 lv) (VarRef a2 ref)) ->
     ([e1], VarRef a1 (Id a1 lv), [])
   e1@(AssignExpr a op (LVar a1 lv) e2) -> let (pre, e3, post) = unnestAssigns e2 in
-    (pre ++ [AssignExpr a op (LVar a1 lv) e3], VarRef a1 (Id a1 lv), [])
+    (pre ++ [AssignExpr a op (LVar a1 lv) e3], VarRef a1 (Id a1 lv), post)
+  e1@(UnaryAssignExpr a PostfixInc (LVar a1 lv)) ->
+    ([], VarRef a1 (Id a1 lv), [e1])
+  e1@(UnaryAssignExpr a PrefixInc (LVar a1 lv)) ->
+    ([e1], VarRef a1 (Id a1 lv), [])
+  e | null pre && null post -> ([], e, [])
+    | otherwise             -> (pre, unstr $ unch ch2, post)
+    where (str, unstr) = uniplate e
+          (ch,  unch)  = strStructure str
+          unnested     = map unnestAssigns ch
+          pre          = concat [ x | (x, _, _) <- unnested ]
+          post         = concat [ x | (_, _, x) <- unnested ]
+          ch2          = [ x | (_, x, _) <- unnested ]
 
 unnest :: Data a => Expression a -> Expression a
-unnest e = ListExpr (getAnnotation e) (pre ++ [e'] ++ post)
+unnest e | null pre && null post = e'
+         | otherwise = ListExpr (getAnnotation e) (pre ++ post ++ [e'])
   where (pre, e', post) = unnestAssigns e
 
-testExpr = case parse expression "" "x = y = z = a = b" of
+testExpr = case parse expression "" "x = (y = z = ++a)" of
   Right expr -> expr
   Left err   -> error $ show err
-testExpr2 = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (AssignExpr () OpAssign (LVar () "x") (VarRef () (Id () "z"))),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
 
 testConvert = convert (unnest testExpr) (Lam "xxx" (Var "xxx"))
-testConvert2 = convert (unnest testExpr2) (Lam "xxx" (Var "xxx"))
 
