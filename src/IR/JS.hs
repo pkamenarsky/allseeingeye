@@ -5,6 +5,7 @@ import           Data.Generics.Uniplate.Data
 import           Data.Data
 import           Data.Maybe
 
+import           Language.ECMAScript3.PrettyPrint
 import           Language.ECMAScript3.Syntax
 import           Language.ECMAScript3.Syntax.Annotations
 
@@ -88,9 +89,9 @@ unnestAssigns e | null asgns' = e
                 | otherwise   = ListExpr (getAnnotation e) (asgns' ++ [e'])
   where (ch, f) = uniplate e
         (ss, s) = strStructure ch
-        tr ass@(AssignExpr a op (LVar a' lv) e)
-               = (VarRef a' (Id a' lv), Just ass)
-        tr e   = (e, Nothing)
+        tr (AssignExpr a op (LVar a' lv) e)
+               = (VarRef a' (Id a' lv), Just (AssignExpr a op (LVar a' lv) $ unnestAssigns e))
+        tr e   = (unnestAssigns e, Nothing)
         asgns  = map tr ss
         asgns' = mapMaybe snd asgns
         e'     = f $ s (map fst asgns)
