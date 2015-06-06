@@ -8,6 +8,7 @@ import           Data.Generics.Uniplate.Data
 import           Data.Data
 import           Data.Maybe
 
+import           Language.ECMAScript3.Parser
 import           Language.ECMAScript3.PrettyPrint
 import           Language.ECMAScript3.Syntax
 import           Language.ECMAScript3.Syntax.Annotations
@@ -75,7 +76,9 @@ unnest e = ListExpr (getAnnotation e) (reverse pre ++ reverse post ++ [e''])
           ListExpr a es -> last es
           otherwise     -> e'
 
-testExpr = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (UnaryAssignExpr () PrefixInc (LVar () "x"))])
+testExpr = case parse expression "" "x = b++, y = b" of
+  Right expr -> expr
+  Left err   -> error $ show err
 testExpr2 = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (AssignExpr () OpAssign (LVar () "x") (VarRef () (Id () "z"))),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
 
 testConvert = convert (unnest testExpr) (Lam "xxx" (Var "xxx"))

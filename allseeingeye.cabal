@@ -28,6 +28,7 @@ executable allseeingeye
                        language-ecmascript-analysis,
                        mtl,
                        random,
+                       parsec,
                        text,
                        uniplate,
                        unordered-containers
