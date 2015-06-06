@@ -19,11 +19,9 @@ import           IR
 setA :: L -> Int -> L -> L
 setA arr i e = (App (App (App (Var "setA") arr) (Cnst $ show i)) e)
 
--- functio name, impure arguments (0 is this, -1 is world)
-type F = (String, [Int])
-
-fns :: [F]
-fns = [ ( "push", [0] ) ]
+-- function name, impure arguments (0 is this, -1 is world)
+fns :: M.Map String [Int]
+fns = M.fromList [ ( "push", [0] ) ]
 
 prefixOp :: M.Map UnaryAssignOp (String, Bool)
 prefixOp = M.fromList [ (PrefixInc , ("inc", True ))
@@ -71,11 +69,17 @@ convert (ListExpr a es) cnt | null es   = cnt
         isRef (ThisRef _)        = True
         isRef _                  = False
 convert (CallExpr a f xs) cnt
-  -- what to do about the undefineds here?
-  = foldl App (convert f undefined) (map (flip convert undefined) xs)
+  -- FIXME: what to do about the undefineds here?
+  | Just n <- getName f, Just df <- M.lookup n fns
+    = if length df == 1
+      -- then App (Lam (convert (xs !! (df !! 0)) undefined) cnt) expr
+      then App (Lam "a" cnt) expr
+      else undefined
+  | otherwise = foldl App (convert f undefined) (map (flip convert undefined) xs)
     where getName (VarRef _ (Id _ ref))                      = Just ref
           getName (DotRef _ (VarRef _ (Id _ fn)) (Id _ ref)) = Just $ fn ++ "." ++ ref
           getName _                                          = Nothing
+          expr = foldl App (convert f undefined) (map (flip convert undefined) xs)
 convert (FuncExpr a n xs ss) cnt = undefined
 
 unnestAssigns :: Data a => Expression a -> ([Expression a], Expression a, [Expression a])
@@ -102,7 +106,8 @@ unnest e | null pre && null post = e
   where (pre, e', post) = unnestAssigns e
 
 --testExpr = case parse expression "" "x = [y = f(z = ++a)]" of
-testExpr = case parse expression "" "r = rand(y, ++z, world), world = fst(r), x = snd(r), tuple(world, x)" of
+-- testExpr = case parse expression "" "r = rand(y, ++z, world), world = fst(r), x = snd(r), tuple(world, x)" of
+testExpr = case parse expression "" "push(a, 'uu'), a" of
   Right expr -> expr
   Left err   -> error $ show err
 
