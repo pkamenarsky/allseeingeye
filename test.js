@@ -13,12 +13,15 @@
   return (a + b + c);
   */
 
+  /*
   var a = 5;
   var c = a;
   var b = 6;
   h(c);
   g(b);
   return (c + a + b + c);
+  */
+  (b = (x = z)), (c = y);
 }
 
 {
