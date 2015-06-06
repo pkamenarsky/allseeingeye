@@ -39,7 +39,9 @@ convert (NewExpr a (Expression a) {- constructor -} [Expression a])
 convert (PrefixExpr a PrefixOp (Expression a))
 -}
 convert (UnaryAssignExpr a PrefixInc (LVar a' lv)) cnt =
-  App (Lam lv cnt) (App (Var "inc") (Var lv))
+  App (Lam lv (App (Lam lv cnt) (App (Var "inc") (Var lv)))) (App (Var "inc") (Var lv))
+convert (UnaryAssignExpr a PostfixInc (LVar a' lv)) cnt =
+  (App (Lam lv cnt) (App (Var "inc") (Var lv)))
 {-
 convert (InfixExpr a InfixOp (Expression a) (Expression a))
 convert (CondExpr a (Expression a) (Expression a) (Expression a))
@@ -57,6 +59,7 @@ unnestAssigns = rewriteM $ \e -> case e of
   e'@(AssignExpr a op (LVar a' lv) (VarRef a'' ref)) -> do
     modify (first (e':))
     return $ Just (VarRef a' (Id a' lv))
+  -- FALSE
   e'@(UnaryAssignExpr a PrefixInc (LVar a' lv)) -> do
     modify (first (e':))
     return $ Just (VarRef a' (Id a' lv))
