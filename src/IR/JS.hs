@@ -1,5 +1,7 @@
 module IR.JS where
 
+import           Control.Monad.State
+
 import           Data.Generics.Str
 import           Data.Generics.Uniplate.Data
 import           Data.Data
@@ -84,9 +86,22 @@ convert (CallExpr a (Expression a) [Expression a])
 convert (FuncExpr a (Maybe (Id a)) [Id a] [Statement a])
 -}
 
+unnestAssigns :: Data a => Expression a -> State [Expression a] (Expression a)
+unnestAssigns = rewriteM $ \e -> case e of
+  e'@(AssignExpr a op (LVar a' lv) (VarRef a'' ref)) -> do
+    modify (e':)
+    return $ Just (VarRef a' (Id a' lv))
+  e -> return Nothing
+
+unnest :: Data a => Expression a -> Expression a
+unnest e = ListExpr (getAnnotation e) (reverse asgns ++ [e'])
+  where (e', asgns) = runState (unnestAssigns e) []
+
+{-
 unnestAssigns :: Data a => Expression a -> Expression a
 unnestAssigns e | null asgns' = e
-                | otherwise   = ListExpr (getAnnotation e) (asgns' ++ [e'])
+                -- | otherwise   = ListExpr (getAnnotation e) (asgns' ++ [e'])
+                | otherwise   = ListExpr (getAnnotation e) ([e'])
   where (ch, f) = uniplate e
         (ss, s) = strStructure ch
         tr (AssignExpr a op (LVar a' lv) e)
@@ -95,6 +110,7 @@ unnestAssigns e | null asgns' = e
         asgns  = map tr ss
         asgns' = mapMaybe snd asgns
         e'     = f $ s (map fst asgns)
+-}
 
 testExpr = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (UnaryAssignExpr () PrefixInc (LVar () "x")),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
 testExpr2 = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (AssignExpr () OpAssign (LVar () "x") (VarRef () (Id () "z"))),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
