@@ -75,11 +75,11 @@ unnestAssigns e = case e of
           ch2          = [ x | (_, x, _) <- unnested ]
 
 unnest :: Data a => Expression a -> Expression a
-unnest e | null pre && null post = e'
+unnest e | null pre && null post = e
          | otherwise = ListExpr (getAnnotation e) (pre ++ post ++ [e'])
   where (pre, e', post) = unnestAssigns e
 
-testExpr = case parse expression "" "x = (y = z = ++a)" of
+testExpr = case parse expression "" "x = [y = f(z = ++a)]" of
   Right expr -> expr
   Left err   -> error $ show err
 
