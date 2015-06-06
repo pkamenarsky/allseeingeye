@@ -3,6 +3,7 @@ module IR.JS where
 import           Data.Generics.Str
 import           Data.Generics.Uniplate.Data
 import           Data.Data
+import           Data.Maybe
 
 import           Language.ECMAScript3.Syntax
 import           Language.ECMAScript3.Syntax.Annotations
@@ -83,12 +84,16 @@ convert (FuncExpr a (Maybe (Id a)) [Id a] [Statement a])
 -}
 
 unnestAssigns :: Data a => Expression a -> Expression a
-unnestAssigns e | null asgns = e
-                | otherwise  = ListExpr (getAnnotation e) (map snd asgns ++ [e'])
+unnestAssigns e | null asgns' = e
+                | otherwise   = ListExpr (getAnnotation e) (asgns' ++ [e'])
   where (ch, f) = uniplate e
         (ss, s) = strStructure ch
-        asgns = [ (VarRef a' (Id a' lv), ass) | ass@(AssignExpr a op (LVar a' lv) e) <- ss ]
-        e' = f $ s (map fst asgns)
+        tr ass@(AssignExpr a op (LVar a' lv) e)
+               = (VarRef a' (Id a' lv), Just ass)
+        tr e   = (e, Nothing)
+        asgns  = map tr ss
+        asgns' = mapMaybe snd asgns
+        e'     = f $ s (map fst asgns)
 
 testExpr = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (UnaryAssignExpr () PrefixInc (LVar () "x")),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
 testExpr2 = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (AssignExpr () OpAssign (LVar () "x") (VarRef () (Id () "z"))),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
