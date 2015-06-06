@@ -55,28 +55,18 @@ convert (CallExpr a (Expression a) [Expression a])
 convert (FuncExpr a (Maybe (Id a)) [Id a] [Statement a])
 -}
 
-unnestAssigns :: Data a => Expression a -> State ([Expression a],[Expression a]) (Expression a)
-unnestAssigns = rewriteM $ \e -> case e of
-  e'@(AssignExpr a op (LVar a' lv) (VarRef a'' ref)) -> do
-    modify (first (e':))
-    return $ Just (VarRef a' (Id a' lv))
-  -- FALSE
-  e'@(UnaryAssignExpr a PrefixInc (LVar a' lv)) -> do
-    modify (first (e':))
-    return $ Just (VarRef a' (Id a' lv))
-  e'@(UnaryAssignExpr a PostfixInc (LVar a' lv)) -> do
-    modify (second (e':))
-    return $ Just (VarRef a' (Id a' lv))
-  e -> return Nothing
+unnestAssigns :: Data a => Expression a -> ([Expression a], Expression a, [Expression a])
+unnestAssigns e = case e of
+  e1@(AssignExpr a op (LVar a1 lv) (VarRef a2 ref)) ->
+    ([e1], VarRef a1 (Id a1 lv), [])
+  e1@(AssignExpr a op (LVar a1 lv) e2) -> let (pre, e3, post) = unnestAssigns e2 in
+    (pre ++ [AssignExpr a op (LVar a1 lv) e3], VarRef a1 (Id a1 lv), [])
 
 unnest :: Data a => Expression a -> Expression a
-unnest e = ListExpr (getAnnotation e) (reverse pre ++ reverse post ++ [e''])
-  where (e', (pre, post)) = runState (unnestAssigns e) ([], [])
-        e'' = case e' of
-          ListExpr a es -> last es
-          otherwise     -> e'
+unnest e = ListExpr (getAnnotation e) (pre ++ [e'] ++ post)
+  where (pre, e', post) = unnestAssigns e
 
-testExpr = case parse expression "" "x = b++, y = b" of
+testExpr = case parse expression "" "x = y = z = a = b" of
   Right expr -> expr
   Left err   -> error $ show err
 testExpr2 = (ListExpr () [AssignExpr () OpAssign (LVar () "b") (AssignExpr () OpAssign (LVar () "x") (VarRef () (Id () "z"))),AssignExpr () OpAssign (LVar () "c") (VarRef () (Id () "y"))])
