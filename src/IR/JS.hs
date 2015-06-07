@@ -45,7 +45,7 @@ convert (ObjectLit a [(Prop a, Expression a)])
 convert (ThisRef a)
 -}
 convert (VarRef a (Id a' ref)) cnt = Var ref
-convert (DotRef _ e (Id _ ref)) cnt = App (App (Extrn "get") (convert e cnt)) (Cnst ref)
+convert (DotRef _ e (Id _ ref)) cnt = App (App (Extrn "get") (convert e undefined)) (Cnst ref)
 {-
 convert (BracketRef a (Expression a) {- container -} (Expression a) {- key -})
 convert (NewExpr a (Expression a) {- constructor -} [Expression a])
