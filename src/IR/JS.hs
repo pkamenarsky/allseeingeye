@@ -45,8 +45,8 @@ convert (ObjectLit a [(Prop a, Expression a)])
 convert (ThisRef a)
 -}
 convert (VarRef a (Id a' ref)) cnt = Var ref
+convert (DotRef _ e (Id _ ref)) cnt = App (App (Extrn "get") (convert e cnt)) (Cnst ref)
 {-
-convert (DotRef a (Expression a) (Id a))
 convert (BracketRef a (Expression a) {- container -} (Expression a) {- key -})
 convert (NewExpr a (Expression a) {- constructor -} [Expression a])
 convert (PrefixExpr a PrefixOp (Expression a))
@@ -76,9 +76,9 @@ convert (CallExpr a f xs) cnt
       then App (Lam "a" cnt) expr
       else undefined
   | otherwise = foldl App (convert f undefined) (map (flip convert undefined) xs)
-    where getName (VarRef _ (Id _ ref))                      = Just ref
-          getName (DotRef _ (VarRef _ (Id _ fn)) (Id _ ref)) = Just $ fn ++ "." ++ ref
-          getName _                                          = Nothing
+    where getName (VarRef _ (Id _ ref))   = Just ref
+          getName (DotRef _ _ (Id _ ref)) = Just ref
+          getName _                       = Nothing
           expr = foldl App (convert f undefined) (map (flip convert undefined) xs)
 convert (FuncExpr a n xs ss) cnt = undefined
 
@@ -107,7 +107,7 @@ unnest e | null pre && null post = e
 
 --testExpr = case parse expression "" "x = [y = f(z = ++a)]" of
 -- testExpr = case parse expression "" "r = rand(y, ++z, world), world = fst(r), x = snd(r), tuple(world, x)" of
-testExpr = case parse expression "" "push(a, 'uu'), a" of
+testExpr = case parse expression "" "a.push(a, 'uu'), a" of
   Right expr -> expr
   Left err   -> error $ show err
 
