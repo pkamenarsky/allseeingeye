@@ -75,6 +75,21 @@ pr5 = Lambda ["world"] $ P
        , Return (Ref "world")
        ]
 
+pr6 = P
+       [ Decl "b" (Ref "x")
+       , Decl "a" (Ref "y")
+       , Assign "a" (Call (Ref "f") [Ref "a"])
+       , Assign "a" (Call (Ref "f") [Ref "b"])
+       , Return (Ref "a")
+       ]
+
+pr7 = P
+       [ Decl "a" (Ref "y")
+       , Decl "b" (Ref "x")
+       , Assign "a" (Call (Ref "f") [Ref "a"])
+       , Return (Ref "a")
+       ]
+
 l3 = sToP pr3
 
 l1 = sToP pr1
@@ -86,3 +101,7 @@ l = sToP pr
 l4 = sToE pr4
 
 l5 = sToE pr5
+
+l6 = sToP pr6
+
+l7 = sToP pr7

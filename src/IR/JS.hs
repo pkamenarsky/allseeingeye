@@ -32,12 +32,12 @@ prefixOp = M.fromList [ (PrefixInc , ("inc", True ))
 
 convert :: Expression a -> L -> L
 convert (StringLit a lit) cnt = Cnst lit
+convert (RegexpLit a lit glb csi) cnt = Cnst lit
+convert (NumLit a lit) cnt = Cnst $ show lit
+convert (IntLit a lit) cnt = Cnst $ show lit
+convert (BoolLit a lit) cnt = Cnst $ show lit
+convert (NullLit a) cnt = Var "null"
 {-
-convert (RegexpLit a lit glb csi) = Cnst lit
-convert (NumLit a lit) = Cnst $ show lit
-convert (IntLit a lit) = Cnst $ show lit
-convert (BoolLit a lit) = Cnst $ show lit
-convert (NullLit a) = Var "null"
 convert (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convert $ head es))))
                               (App (Var "newArray") (Var "world"))
 
@@ -105,11 +105,41 @@ unnest e | null pre && null post = e
          | otherwise = ListExpr (getAnnotation e) (pre ++ post ++ [e'])
   where (pre, e', post) = unnestAssigns e
 
---testExpr = case parse expression "" "x = [y = f(z = ++a)]" of
--- testExpr = case parse expression "" "r = rand(y, ++z, world), world = fst(r), x = snd(r), tuple(world, x)" of
-testExpr = case parse expression "" "a.push(a, 'uu'), a" of
+type Vars a = State Int a
+
+u = undefined
+
+getVar :: Vars Name
+getVar = do
+  x <- get
+  modify (+1)
+  return $ "x" ++ show x
+
+tuple :: [Name] -> Expression a -> Vars [Expression a]
+tuple vars e = do
+  tpl <- getVar
+  return $ [AssignExpr u OpAssign (LVar u tpl) e]
+        ++ map (\(i, var) -> AssignExpr u OpAssign (LVar u var)
+            (CallExpr u (VarRef u (Id u ("get" ++ show i))) [(VarRef u (Id u tpl))])) (zip [1..] vars)
+
+unnestCallExpr :: Data a => Expression a -> Vars [Expression a]
+unnestCallExpr e@(CallExpr a (VarRef _ _) xs)    = return [e]
+unnestCallExpr e@(CallExpr a (DotRef _ e2 _) xs) = do
+  var <- getVar
+  e2' <- unnestCallExpr e2
+  return $ [AssignExpr u OpAssign (LVar u var) e] ++ e2'
+
+parseExpr str = case parse expression "" str of
   Right expr -> expr
   Left err   -> error $ show err
 
-testConvert = convert (unnest testExpr) (Lam "xxx" (Var "xxx"))
+--testExpr = case parse expression "" "x = [y = f(z = ++a)]" of
+-- testExpr = case parse expression "" "r = rand(y, ++z, world), world = fst(r), x = snd(r), tuple(world, x)" of
+texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
+tc1 = convert (unnest texpr1) (Lam "xxx" (Var "xxx"))
 
+texpr2 = parseExpr "b = x, a = y, a = f(a), a = f(b), a"
+tc2 = convert (unnest texpr2) (Lam "xxx" (Var "xxx"))
+
+texpr3 = parseExpr "a = y, b = x, a = f(a), a"
+tc3 = convert (unnest texpr3) (Lam "xxx" (Var "xxx"))
