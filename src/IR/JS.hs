@@ -62,7 +62,6 @@ convert (CondExpr a (Expression a) (Expression a) (Expression a))
 -}
 convert (AssignExpr a op (LVar a' lv) e) = do
   e' <- convert e
-  -- modify (++ [Assign lv e'])
   modify (\f -> \cnt -> f [Assign lv e'] ++ cnt)
   return $ Ref lv
 {-
