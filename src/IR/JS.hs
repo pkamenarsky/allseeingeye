@@ -27,13 +27,13 @@ prefixOp = M.fromList [ (PrefixInc , ("inc", True ))
                       , (PostfixDec, ("dec", False))
                       ]
 
-convert :: Expression a -> E
-convert (StringLit a lit) = Const lit
-convert (RegexpLit a lit glb csi) = Const lit
-convert (NumLit a lit) = Const $ show lit
-convert (IntLit a lit) = Const $ show lit
-convert (BoolLit a lit) = Const $ show lit
-convert (NullLit a) = Ref "null"
+convert :: Expression a -> State [S] E
+convert (StringLit a lit) = return $ Const lit
+convert (RegexpLit a lit glb csi) = return $ Const lit
+convert (NumLit a lit) = return $ Const $ show lit
+convert (IntLit a lit) = return $ Const $ show lit
+convert (BoolLit a lit) = return $ Const $ show lit
+convert (NullLit a) = return $ Ref "null"
 {-
 convert (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convert $ head es))))
                               (App (Var "newArray") (Var "world"))
@@ -41,8 +41,10 @@ convert (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convert $ hea
 convert (ObjectLit a [(Prop a, Expression a)])
 convert (ThisRef a)
 -}
-convert (VarRef a (Id a' ref)) = Ref ref
-convert (DotRef _ e (Id _ ref)) = Call (Ref "get") [convert e, Const ref]
+convert (VarRef a (Id a' ref)) = return $ Ref ref
+convert (DotRef _ e (Id _ ref)) = do
+  e' <- convert e
+  return $ Call (Ref "get") [e', Const ref]
 {-
 convert (BracketRef a (Expression a) {- container -} (Expression a) {- key -})
 convert (NewExpr a (Expression a) {- constructor -} [Expression a])
@@ -53,8 +55,12 @@ convert (UnaryAssignExpr a op (LVar a' lv)) =
 {-
 convert (InfixExpr a InfixOp (Expression a) (Expression a))
 convert (CondExpr a (Expression a) (Expression a) (Expression a))
-convert (AssignExpr a op (LVar a' lv) e) =
-  let cnt' = App (Lam lv cnt) (convert e cnt') in cnt'
+-}
+convert (AssignExpr a op (LVar a' lv) e) = do
+  e' <- convert e
+  modify (++ [Assign lv e'])
+  return $ Ref lv
+{-
 convert (ListExpr a es) | null es   = cnt
                         | otherwise = foldr convert (filter (not . isRef) (init es) ++ [last es])
   -- we need to filter all useless refs inside the list, like "y" in
@@ -129,6 +135,10 @@ unnestCallExpr e@(CallExpr a (DotRef _ e2 _) xs) = do
 parseExpr str = case parse expression "" str of
   Right expr -> expr
   Left err   -> error $ show err
+
+testConvert :: String -> P
+testConvert e = P $ ss ++ [Return e']
+  where (e', ss) = runState (convert $ parseExpr e) []
 
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
 
