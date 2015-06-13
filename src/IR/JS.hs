@@ -16,9 +16,6 @@ import           Language.ECMAScript3.Syntax.Annotations
 
 import           IR
 
-setA :: L -> Int -> L -> L
-setA arr i e = (App (App (App (Var "setA") arr) (Cnst $ show i)) e)
-
 -- function name, impure arguments (0 is this, -1 is world)
 fns :: M.Map String [Int]
 fns = M.fromList [ ( "push", [0] ) ]
@@ -30,13 +27,13 @@ prefixOp = M.fromList [ (PrefixInc , ("inc", True ))
                       , (PostfixDec, ("dec", False))
                       ]
 
-convert :: Expression a -> L -> L
-convert (StringLit a lit) cnt = Cnst lit
-convert (RegexpLit a lit glb csi) cnt = Cnst lit
-convert (NumLit a lit) cnt = Cnst $ show lit
-convert (IntLit a lit) cnt = Cnst $ show lit
-convert (BoolLit a lit) cnt = Cnst $ show lit
-convert (NullLit a) cnt = Var "null"
+convert :: Expression a -> E
+convert (StringLit a lit) = Const lit
+convert (RegexpLit a lit glb csi) = Const lit
+convert (NumLit a lit) = Const $ show lit
+convert (IntLit a lit) = Const $ show lit
+convert (BoolLit a lit) = Const $ show lit
+convert (NullLit a) = Ref "null"
 {-
 convert (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convert $ head es))))
                               (App (Var "newArray") (Var "world"))
@@ -44,23 +41,22 @@ convert (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convert $ hea
 convert (ObjectLit a [(Prop a, Expression a)])
 convert (ThisRef a)
 -}
-convert (VarRef a (Id a' ref)) cnt = Var ref
-convert (DotRef _ e (Id _ ref)) cnt = App (App (Extrn "get") (convert e undefined)) (Cnst ref)
+convert (VarRef a (Id a' ref)) = Ref ref
+convert (DotRef _ e (Id _ ref)) = Call (Ref "get") [convert e, Const ref]
 {-
 convert (BracketRef a (Expression a) {- container -} (Expression a) {- key -})
 convert (NewExpr a (Expression a) {- constructor -} [Expression a])
 convert (PrefixExpr a PrefixOp (Expression a))
--}
-convert (UnaryAssignExpr a op (LVar a' lv)) cnt =
+convert (UnaryAssignExpr a op (LVar a' lv)) =
   (App (Lam lv cnt) (App (Extrn $ fst $ M.findWithDefault ("op", True) op prefixOp) (Var lv)))
+-}
 {-
 convert (InfixExpr a InfixOp (Expression a) (Expression a))
 convert (CondExpr a (Expression a) (Expression a) (Expression a))
--}
-convert (AssignExpr a op (LVar a' lv) e) cnt =
+convert (AssignExpr a op (LVar a' lv) e) =
   let cnt' = App (Lam lv cnt) (convert e cnt') in cnt'
-convert (ListExpr a es) cnt | null es   = cnt
-                            | otherwise = foldr convert cnt (filter (not . isRef) (init es) ++ [last es])
+convert (ListExpr a es) | null es   = cnt
+                        | otherwise = foldr convert (filter (not . isRef) (init es) ++ [last es])
   -- we need to filter all useless refs inside the list, like "y" in
   -- x++, y, z
   where isRef (VarRef _ _)       = True
@@ -68,7 +64,7 @@ convert (ListExpr a es) cnt | null es   = cnt
         isRef (BracketRef _ _ _) = True
         isRef (ThisRef _)        = True
         isRef _                  = False
-convert (CallExpr a f xs) cnt
+convert (CallExpr a f xs)
   -- FIXME: what to do about the undefineds here?
   | Just n <- getName f, Just df <- M.lookup n fns
     = if length df == 1
@@ -80,7 +76,8 @@ convert (CallExpr a f xs) cnt
           getName (DotRef _ _ (Id _ ref)) = Just ref
           getName _                       = Nothing
           expr = foldl App (convert f undefined) (map (flip convert undefined) xs)
-convert (FuncExpr a n xs ss) cnt = undefined
+convert (FuncExpr a n xs ss) = undefined
+-}
 
 unnestAssigns :: Data a => Expression a -> ([Expression a], Expression a, [Expression a])
 unnestAssigns e = case e of
@@ -133,13 +130,8 @@ parseExpr str = case parse expression "" str of
   Right expr -> expr
   Left err   -> error $ show err
 
---testExpr = case parse expression "" "x = [y = f(z = ++a)]" of
--- testExpr = case parse expression "" "r = rand(y, ++z, world), world = fst(r), x = snd(r), tuple(world, x)" of
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
-tc1 = convert (unnest texpr1) (Lam "xxx" (Var "xxx"))
 
 texpr2 = parseExpr "b = x, a = y, a = f(b), a = f(a), a = f(a), a = f(a), a"
-tc2 = convert (unnest texpr2) (Lam "xxx" (Var "xxx"))
 
 texpr3 = parseExpr "a = y, b = x, a = f(b), a = f(a), a = f(a), a"
-tc3 = convert (unnest texpr3) (Lam "xxx" (Var "xxx"))
