@@ -27,7 +27,7 @@ prefixOp = M.fromList [ (PrefixInc , ("inc", True ))
                       , (PostfixDec, ("dec", False))
                       ]
 
-convert :: Expression a -> State [S] E
+convert :: Expression a -> State (P -> P) E
 convert (StringLit a lit) = return $ Const lit
 convert (RegexpLit a lit glb csi) = return $ Const lit
 convert (NumLit a lit) = return $ Const $ show lit
@@ -49,16 +49,24 @@ convert (DotRef _ e (Id _ ref)) = do
 convert (BracketRef a (Expression a) {- container -} (Expression a) {- key -})
 convert (NewExpr a (Expression a) {- constructor -} [Expression a])
 convert (PrefixExpr a PrefixOp (Expression a))
-convert (UnaryAssignExpr a op (LVar a' lv)) =
-  (App (Lam lv cnt) (App (Extrn $ fst $ M.findWithDefault ("op", True) op prefixOp) (Var lv)))
 -}
+convert (UnaryAssignExpr a op (LVar a' lv))
+  | (opname, True)  <- op' = undefined
+  | (opname, False) <- op' = undefined
+  where
+    op' = getOp op
+    getOp PrefixInc  = ("inc", True )
+    getOp PostfixInc = ("inc", False)
+    getOp PrefixDec  = ("dec", True )
+    getOp PostfixDec = ("dec", False)
 {-
 convert (InfixExpr a InfixOp (Expression a) (Expression a))
 convert (CondExpr a (Expression a) (Expression a) (Expression a))
 -}
 convert (AssignExpr a op (LVar a' lv) e) = do
   e' <- convert e
-  modify (++ [Assign lv e'])
+  -- modify (++ [Assign lv e'])
+  modify (\f -> \cnt -> let P ss = (f $ cnt) in P $ ss ++ [Assign lv e'])
   return $ Ref lv
 {-
 convert (ListExpr a es) | null es   = cnt
@@ -85,6 +93,7 @@ convert (CallExpr a f xs)
 convert (FuncExpr a n xs ss) = undefined
 -}
 
+{-
 unnestAssigns :: Data a => Expression a -> ([Expression a], Expression a, [Expression a])
 unnestAssigns e = case e of
   e1@(AssignExpr a op (LVar a1 lv) (VarRef a2 ref)) ->
@@ -125,20 +134,22 @@ tuple vars e = do
         ++ map (\(i, var) -> AssignExpr u OpAssign (LVar u var)
             (CallExpr u (VarRef u (Id u ("get" ++ show i))) [(VarRef u (Id u tpl))])) (zip [1..] vars)
 
+
 unnestCallExpr :: Data a => Expression a -> Vars [Expression a]
 unnestCallExpr e@(CallExpr a (VarRef _ _) xs)    = return [e]
 unnestCallExpr e@(CallExpr a (DotRef _ e2 _) xs) = do
   var <- getVar
   e2' <- unnestCallExpr e2
   return $ [AssignExpr u OpAssign (LVar u var) e] ++ e2'
+-}
 
 parseExpr str = case parse expression "" str of
   Right expr -> expr
   Left err   -> error $ show err
 
 testConvert :: String -> P
-testConvert e = P $ ss ++ [Return e']
-  where (e', ss) = runState (convert $ parseExpr e) []
+testConvert e = ss $ P [Return e']
+  where (e', ss) = runState (convert $ parseExpr e) (const $ P [])
 
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
 
