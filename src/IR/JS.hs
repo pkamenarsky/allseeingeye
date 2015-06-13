@@ -20,13 +20,6 @@ import           IR
 fns :: M.Map String [Int]
 fns = M.fromList [ ( "push", [0] ) ]
 
-prefixOp :: M.Map UnaryAssignOp (String, Bool)
-prefixOp = M.fromList [ (PrefixInc , ("inc", True ))
-                      , (PostfixInc, ("inc", False))
-                      , (PrefixDec , ("dec", True ))
-                      , (PostfixDec, ("dec", False))
-                      ]
-
 convert :: Expression a -> State ([S] -> [S]) E
 convert (StringLit a lit) = return $ Const lit
 convert (RegexpLit a lit glb csi) = return $ Const lit
@@ -95,56 +88,6 @@ convert (CallExpr a f xs)
           getName _                       = Nothing
           expr = foldl App (convert f undefined) (map (flip convert undefined) xs)
 convert (FuncExpr a n xs ss) = undefined
--}
-
-{-
-unnestAssigns :: Data a => Expression a -> ([Expression a], Expression a, [Expression a])
-unnestAssigns e = case e of
-  e1@(AssignExpr a op (LVar a1 lv) (VarRef a2 ref)) ->
-    ([e1], VarRef a1 (Id a1 lv), [])
-  e1@(AssignExpr a op (LVar a1 lv) e2) -> let (pre, e3, post) = unnestAssigns e2 in
-    (pre ++ [AssignExpr a op (LVar a1 lv) e3], VarRef a1 (Id a1 lv), post)
-  e1@(UnaryAssignExpr a op (LVar a1 lv))
-    | Just (_, True) <- M.lookup op prefixOp -> ([e1], VarRef a1 (Id a1 lv), [])
-    | otherwise                              -> ([], VarRef a1 (Id a1 lv), [e1])
-  e | null pre && null post -> ([], e, [])
-    | otherwise             -> (pre, unstr $ unch ch2, post)
-    where (str, unstr) = uniplate e
-          (ch,  unch)  = strStructure str
-          unnested     = map unnestAssigns ch
-          pre          = concat [ x | (x, _, _) <- unnested ]
-          post         = concat [ x | (_, _, x) <- unnested ]
-          ch2          = [ x | (_, x, _) <- unnested ]
-
-unnest :: Data a => Expression a -> Expression a
-unnest e | null pre && null post = e
-         | otherwise = ListExpr (getAnnotation e) (pre ++ post ++ [e'])
-  where (pre, e', post) = unnestAssigns e
-
-type Vars a = State Int a
-
-u = undefined
-
-getVar :: Vars Name
-getVar = do
-  x <- get
-  modify (+1)
-  return $ "x" ++ show x
-
-tuple :: [Name] -> Expression a -> Vars [Expression a]
-tuple vars e = do
-  tpl <- getVar
-  return $ [AssignExpr u OpAssign (LVar u tpl) e]
-        ++ map (\(i, var) -> AssignExpr u OpAssign (LVar u var)
-            (CallExpr u (VarRef u (Id u ("get" ++ show i))) [(VarRef u (Id u tpl))])) (zip [1..] vars)
-
-
-unnestCallExpr :: Data a => Expression a -> Vars [Expression a]
-unnestCallExpr e@(CallExpr a (VarRef _ _) xs)    = return [e]
-unnestCallExpr e@(CallExpr a (DotRef _ e2 _) xs) = do
-  var <- getVar
-  e2' <- unnestCallExpr e2
-  return $ [AssignExpr u OpAssign (LVar u var) e] ++ e2'
 -}
 
 parseExpr str = case parse expression "" str of
