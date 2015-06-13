@@ -27,7 +27,7 @@ prefixOp = M.fromList [ (PrefixInc , ("inc", True ))
                       , (PostfixDec, ("dec", False))
                       ]
 
-convert :: Expression a -> State (P -> P) E
+convert :: Expression a -> State ([S] -> [S]) E
 convert (StringLit a lit) = return $ Const lit
 convert (RegexpLit a lit glb csi) = return $ Const lit
 convert (NumLit a lit) = return $ Const $ show lit
@@ -51,8 +51,12 @@ convert (NewExpr a (Expression a) {- constructor -} [Expression a])
 convert (PrefixExpr a PrefixOp (Expression a))
 -}
 convert (UnaryAssignExpr a op (LVar a' lv))
-  | (opname, True)  <- op' = undefined
-  | (opname, False) <- op' = undefined
+  | (opname, True)  <- op' = do
+      modify (\f -> \cnt -> f [Assign lv (Call (Ref opname) [Ref lv])] ++ cnt)
+      return $ Ref lv
+  | (opname, False) <- op' = do
+      modify (\f -> \cnt -> f cnt ++ [Assign lv (Call (Ref opname) [Ref lv])])
+      return $ Ref lv
   where
     op' = getOp op
     getOp PrefixInc  = ("inc", True )
@@ -66,7 +70,7 @@ convert (CondExpr a (Expression a) (Expression a) (Expression a))
 convert (AssignExpr a op (LVar a' lv) e) = do
   e' <- convert e
   -- modify (++ [Assign lv e'])
-  modify (\f -> \cnt -> let P ss = (f $ cnt) in P $ ss ++ [Assign lv e'])
+  modify (\f -> \cnt -> f [Assign lv e'] ++ cnt)
   return $ Ref lv
 {-
 convert (ListExpr a es) | null es   = cnt
@@ -148,8 +152,8 @@ parseExpr str = case parse expression "" str of
   Left err   -> error $ show err
 
 testConvert :: String -> P
-testConvert e = ss $ P [Return e']
-  where (e', ss) = runState (convert $ parseExpr e) (const $ P [])
+testConvert e = P $ ss [Return e']
+  where (e', ss) = runState (convert $ parseExpr e) id
 
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
 
