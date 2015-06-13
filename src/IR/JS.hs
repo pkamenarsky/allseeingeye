@@ -138,8 +138,8 @@ parseExpr str = case parse expression "" str of
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
 tc1 = convert (unnest texpr1) (Lam "xxx" (Var "xxx"))
 
-texpr2 = parseExpr "a = y, b = x, a = f(a), a = f(a), a"
+texpr2 = parseExpr "b = x, a = y, a = f(b), a = f(a), a = f(a), a = f(a), a"
 tc2 = convert (unnest texpr2) (Lam "xxx" (Var "xxx"))
 
-texpr3 = parseExpr "a = y, b = x, a = f(a), a"
+texpr3 = parseExpr "a = y, b = x, a = f(b), a = f(a), a = f(a), a"
 tc3 = convert (unnest texpr3) (Lam "xxx" (Var "xxx"))
