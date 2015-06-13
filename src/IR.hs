@@ -78,3 +78,24 @@ normalize (Lam n f) = go (normalize f)
                        | otherwise = Lam n f'
         -}
         go f' = Lam n f'
+
+cmp :: L -> L -> [L]
+cmp l1@(App f1 xs1) l2@(App f2 xs2) | lmtree l1 l2 == endmatch = cmp f1 f2 ++ cmp xs1 xs2
+                                    | otherwise = [lmtree l1 l2]
+cmp l1@(Lam n1 f1) l2@(Lam n2 f2) | lmtree f1 f2 == endmatch = cmp f1 f2
+                                  | otherwise = [lmtree f1 f2]
+cmp _ _ = []
+
+endmatch = Cnst "endmatch"
+
+lmtree :: L -> L -> L
+lmtree (Cnst c1) (Cnst c2) | c1 == c2 = Cnst c1
+                           | otherwise = endmatch
+lmtree (Var c1) (Var c2) | c1 == c2 = Var c1
+                         | otherwise = endmatch
+lmtree (Extrn c1) (Extrn c2) | c1 == c2 = Extrn c1
+                             | otherwise = endmatch
+lmtree (App f1 xs1) (App f2 xs2) = App (lmtree f1 f2) (lmtree xs1 xs2)
+lmtree (Lam n1 f1) (Lam n2 f2) | n1 == n2 = Lam n1 (lmtree f1 f2)
+                               | otherwise = endmatch
+lmtree _ _ = endmatch
