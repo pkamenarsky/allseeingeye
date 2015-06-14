@@ -76,20 +76,19 @@ convert (CallExpr a f xs) = do
 
   modify (\f -> \cnt -> f [Assign "@r" (Call f' xs')] ++ cnt)
 
-  let noobj = do
-        modify (\f -> \cnt -> f [Assign "@" (Call (Ref "fst") [Ref "@r"])] ++ cnt)
-        modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
+  let getobj _    (DotRef _ lv _)      = getobj True lv
+      getobj True (VarRef _ (Id _ lv)) = Just lv
+      getobj False _                   = Nothing
+      getobj _     _                   = Nothing
 
-  case f of
-    (DotRef a lv e) -> do
-      lv' <- convert lv
-      case lv' of
-        Ref n -> do
-          modify (\f -> \cnt -> f [Assign n (Call (Ref "fst") [Ref "@r"])] ++ cnt)
-          modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
-          modify (\f -> \cnt -> f [Assign "@" (Call (Ref "trd") [Ref "@r"])] ++ cnt)
-        _ -> noobj
-    _ -> noobj
+  case getobj False f of
+    Just n -> do
+      modify (\f -> \cnt -> f [Assign n (Call (Ref "fst") [Ref "@r"])] ++ cnt)
+      modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
+      modify (\f -> \cnt -> f [Assign "@" (Call (Ref "trd") [Ref "@r"])] ++ cnt)
+    _ -> do
+      modify (\f -> \cnt -> f [Assign "@" (Call (Ref "fst") [Ref "@r"])] ++ cnt)
+      modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
 
   return $ Ref "@"
 convert (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
