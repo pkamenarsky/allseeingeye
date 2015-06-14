@@ -73,7 +73,7 @@ normalize e@(App (App (Var "merge") x) (Var "world"))
   | otherwise = (App (App (Var "merge") x') (Var "world"))
     where x' = normalize x
 normalize (App f x) = go (normalize f) (normalize x)
-  where go (Lam n e) x' = subst n x' e
+  where go (Lam n e) x' = normalize $ subst n x' e
         go f' x'        = App f' x'
 normalize (Lam n f) = go (normalize f)
   where
