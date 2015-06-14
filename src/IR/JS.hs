@@ -108,7 +108,7 @@ convertE (CallExpr a f xs) = do
   return $ Ref "@"
 convertE (FuncExpr a n xs ss) = do
   let ss' = execState (mapM_ convertS ss) id $ []
-      l   = Lambda (map (\(Id _ n) -> n) xs) (P ss')
+      l   = Lambda (map (\(Id _ n) -> n) xs ++ ["world"]) (P ss')
 
   case n of
     Just (Id _ n) -> do
@@ -149,7 +149,7 @@ convertS (VarDeclStmt a [VarDecl a])
 convertS (FunctionStmt a (Id a) [Id a] [Statement a])
 -}
 
-parseStmt str = case parse statement "" str of
+parseProgram str = case parse program "" str of
   Right expr -> expr
   Left err   -> error $ show err
 
@@ -163,7 +163,8 @@ testConvertE e = P $ ss [Return (Call (Ref "merge") [e', Ref "world"])]
 
 testConvert :: String -> P
 testConvert e = P $ ss []
-  where (_, ss) = runState (convertS $ parseStmt e) id
+  where (_, ss)       = runState (convertS $ BlockStmt a pr) id
+        (Script a pr) = parseProgram e
 
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
 
