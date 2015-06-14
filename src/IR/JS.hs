@@ -1,5 +1,6 @@
 module IR.JS where
 
+import           Control.Applicative                      ((<$>))
 import           Control.Arrow
 import           Control.Monad.State
 
@@ -68,22 +69,37 @@ convert (ListExpr a es) = do
   let go e@(AssignExpr _ _ _ _) = convert e
       go e                      = convert (AssignExpr a OpAssign (LVar a "_") e)
 
-  mapM go $ init es
-  convert $ last es
+  last <$> mapM go es
 convert (CallExpr a f xs) = do
   f'  <- convert f
   xs' <- mapM convert xs
-  return $ Call f' xs'
-{-
-convert (FuncExpr a n xs ss) = undefined
--}
+
+  modify (\f -> \cnt -> f [Assign "__r" (Call f' xs')] ++ cnt)
+
+  let noobj = do
+        modify (\f -> \cnt -> f [Assign "_" (Call (Ref "fst") [Ref "__r"])] ++ cnt)
+        modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "__r"])] ++ cnt)
+
+  case f of
+    (DotRef a lv e) -> do
+      lv' <- convert lv
+      case lv' of
+        Ref n -> do
+          modify (\f -> \cnt -> f [Assign n (Call (Ref "fst") [Ref "__r"])] ++ cnt)
+          modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "__r"])] ++ cnt)
+          modify (\f -> \cnt -> f [Assign "_" (Call (Ref "trd") [Ref "__r"])] ++ cnt)
+        _ -> noobj
+    _ -> noobj
+
+  return $ Ref "_"
+convert (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
 
 parseExpr str = case parse expression "" str of
   Right expr -> expr
   Left err   -> error $ show err
 
 testConvert :: String -> P
-testConvert e = P $ ss [Return e']
+testConvert e = P $ ss [Return (Call (Ref "merge") [e', Ref "world"])]
   where (e', ss) = runState (convert $ parseExpr e) id
 
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
