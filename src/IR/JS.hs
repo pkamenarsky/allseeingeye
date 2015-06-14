@@ -24,6 +24,9 @@ fns = M.fromList [ ( "push", [0] ) ]
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust = flip (maybe (return ()))
 
+pushBack st = modify (\f -> \cnt -> f [st] ++ cnt)
+pushFront st = modify (\f -> \cnt -> f cnt ++ [st])
+
 convert :: Expression a -> State ([S] -> [S]) E
 convert (StringLit a lit) = return $ Const lit
 convert (RegexpLit a lit glb csi) = return $ Const lit
@@ -55,10 +58,10 @@ convert (PrefixExpr a op e) = do
   return $ Call (Ref $ show op) [e']
 convert (UnaryAssignExpr a op (LVar a' lv))
   | (opname, True)  <- op' = do
-      modify (\f -> \cnt -> f [Assign lv (Call (Ref opname) [Ref lv])] ++ cnt)
+      pushBack $ Assign lv (Call (Ref opname) [Ref lv])
       return $ Ref lv
   | (opname, False) <- op' = do
-      modify (\f -> \cnt -> f cnt ++ [Assign lv (Call (Ref opname) [Ref lv])])
+      pushFront $ Assign lv (Call (Ref opname) [Ref lv])
       return $ Ref lv
   where
     op' = getOp op
@@ -78,8 +81,8 @@ convert (CondExpr a cnd t f) = do
 convert (AssignExpr a op (LVar a' lv) e) = do
   e' <- convert e
   if op == OpAssign
-    then modify (\f -> \cnt -> f [Assign lv e'] ++ cnt)
-    else modify (\f -> \cnt -> f [Assign lv (Call (Ref $ show op) [Ref lv, e'])] ++ cnt)
+    then pushBack $ Assign lv e'
+    else pushBack $ Assign lv (Call (Ref $ show op) [Ref lv, e'])
   return $ Ref lv
 convert (ListExpr a es) = do
   let go e@(AssignExpr _ _ _ _) = convert e
@@ -89,7 +92,7 @@ convert (CallExpr a f xs) = do
   f'  <- convert f
   xs' <- mapM convert xs
 
-  modify (\f -> \cnt -> f [Assign "@r" (Call f' xs')] ++ cnt)
+  pushBack $ Assign "@r" (Call f' xs')
 
   let getobj _    (DotRef _ lv _)      = getobj True lv
       getobj True (VarRef _ (Id _ lv)) = Just lv
@@ -97,16 +100,16 @@ convert (CallExpr a f xs) = do
       getobj _     _                   = Nothing
 
   whenJust (getobj False f) $ \n ->
-    modify (\f -> \cnt -> f [Assign n (Call (Ref "fst") [Ref "@r"])] ++ cnt)
+    pushBack $ Assign n (Call (Ref "fst") [Ref "@r"])
 
-  modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
-  modify (\f -> \cnt -> f [Assign "@" (Call (Ref "trd") [Ref "@r"])] ++ cnt)
+  pushBack $ Assign "world" (Call (Ref "snd") [Ref "@r"])
+  pushBack $ Assign "@" (Call (Ref "trd") [Ref "@r"])
 
   return $ Ref "@"
 convert (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
 
-convertS :: Statement a -> State ([S] -> [S]) S
-convertS (BlockStmt a ss) = undefined
+convertS :: Statement a -> State ([S] -> [S]) ()
+convertS (BlockStmt a ss) = mapM_ convertS ss
 {-
 convertS (EmptyStmt a)
 convertS (ExprStmt a (Expression a))
