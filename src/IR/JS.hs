@@ -105,6 +105,30 @@ convert (CallExpr a f xs) = do
   return $ Ref "@"
 convert (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
 
+convertS :: Statement a -> State ([S] -> [S]) S
+convertS (BlockStmt a ss) = undefined
+{-
+convertS (EmptyStmt a)
+convertS (ExprStmt a (Expression a))
+convertS (IfStmt a (Expression a) (Statement a) (Statement a))
+convertS (IfSingleStmt a (Expression a) (Statement a))
+convertS (SwitchStmt a (Expression a) [CaseClause a])
+convertS (WhileStmt a (Expression a) (Statement a))
+convertS (DoWhileStmt a (Statement a) (Expression a))
+convertS (BreakStmt a (Maybe (Id a)))
+convertS (ContinueStmt a (Maybe (Id a)))
+convertS (LabelledStmt a (Id a) (Statement a))
+convertS (ForInStmt a (ForInInit a) (Expression a) (Statement a))
+convertS (ForStmt a (ForInit a) (Maybe (Expression a)) (Maybe (Expression a)) (Statement a))
+convertS (ForStmt a init test increment body, for (init; test, increment) body, spec 12.)
+convertS (TryStmt a (Statement a) (Maybe (CatchClause a)) (Maybe (Statement a)))
+convertS (ThrowStmt a (Expression a))
+convertS (ReturnStmt a (Maybe (Expression a)))
+convertS (WithStmt a (Expression a) (Statement a))
+convertS (VarDeclStmt a [VarDecl a])
+convertS (FunctionStmt a (Id a) [Id a] [Statement a])
+-}
+
 parseExpr str = case parse expression "" str of
   Right expr -> expr
   Left err   -> error $ show err
