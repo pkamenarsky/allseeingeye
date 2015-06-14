@@ -64,28 +64,17 @@ convert (AssignExpr a op (LVar a' lv) e) = do
   e' <- convert e
   modify (\f -> \cnt -> f [Assign lv e'] ++ cnt)
   return $ Ref lv
+convert (ListExpr a es) = do
+  let go e@(AssignExpr _ _ _ _) = convert e
+      go e                      = convert (AssignExpr a OpAssign (LVar a "_") e)
+
+  mapM go $ init es
+  convert $ last es
+convert (CallExpr a f xs) = do
+  f'  <- convert f
+  xs' <- mapM convert xs
+  return $ Call f' xs'
 {-
-convert (ListExpr a es) | null es   = cnt
-                        | otherwise = foldr convert (filter (not . isRef) (init es) ++ [last es])
-  -- we need to filter all useless refs inside the list, like "y" in
-  -- x++, y, z
-  where isRef (VarRef _ _)       = True
-        isRef (DotRef _ _ _)     = True
-        isRef (BracketRef _ _ _) = True
-        isRef (ThisRef _)        = True
-        isRef _                  = False
-convert (CallExpr a f xs)
-  -- FIXME: what to do about the undefineds here?
-  | Just n <- getName f, Just df <- M.lookup n fns
-    = if length df == 1
-      -- then App (Lam (convert (xs !! (df !! 0)) undefined) cnt) expr
-      then App (Lam "a" cnt) expr
-      else undefined
-  | otherwise = foldl App (convert f undefined) (map (flip convert undefined) xs)
-    where getName (VarRef _ (Id _ ref))   = Just ref
-          getName (DotRef _ _ (Id _ ref)) = Just ref
-          getName _                       = Nothing
-          expr = foldl App (convert f undefined) (map (flip convert undefined) xs)
 convert (FuncExpr a n xs ss) = undefined
 -}
 
