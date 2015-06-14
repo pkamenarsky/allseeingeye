@@ -77,7 +77,9 @@ convert (CondExpr a cnd t f) = do
   return (Call (Ref "cond") [cnd', Lambda [] (P [Return t']), Lambda [] (P [Return f'])])
 convert (AssignExpr a op (LVar a' lv) e) = do
   e' <- convert e
-  modify (\f -> \cnt -> f [Assign lv e'] ++ cnt)
+  if op == OpAssign
+    then modify (\f -> \cnt -> f [Assign lv e'] ++ cnt)
+    else modify (\f -> \cnt -> f [Assign lv (Call (Ref $ show op) [Ref lv, e'])] ++ cnt)
   return $ Ref lv
 convert (ListExpr a es) = do
   let go e@(AssignExpr _ _ _ _) = convert e
