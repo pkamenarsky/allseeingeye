@@ -67,31 +67,31 @@ convert (AssignExpr a op (LVar a' lv) e) = do
   return $ Ref lv
 convert (ListExpr a es) = do
   let go e@(AssignExpr _ _ _ _) = convert e
-      go e                      = convert (AssignExpr a OpAssign (LVar a "_") e)
+      go e                      = convert (AssignExpr a OpAssign (LVar a "@") e)
 
   last <$> mapM go es
 convert (CallExpr a f xs) = do
   f'  <- convert f
   xs' <- mapM convert xs
 
-  modify (\f -> \cnt -> f [Assign "__r" (Call f' xs')] ++ cnt)
+  modify (\f -> \cnt -> f [Assign "@r" (Call f' xs')] ++ cnt)
 
   let noobj = do
-        modify (\f -> \cnt -> f [Assign "_" (Call (Ref "fst") [Ref "__r"])] ++ cnt)
-        modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "__r"])] ++ cnt)
+        modify (\f -> \cnt -> f [Assign "@" (Call (Ref "fst") [Ref "@r"])] ++ cnt)
+        modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
 
   case f of
     (DotRef a lv e) -> do
       lv' <- convert lv
       case lv' of
         Ref n -> do
-          modify (\f -> \cnt -> f [Assign n (Call (Ref "fst") [Ref "__r"])] ++ cnt)
-          modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "__r"])] ++ cnt)
-          modify (\f -> \cnt -> f [Assign "_" (Call (Ref "trd") [Ref "__r"])] ++ cnt)
+          modify (\f -> \cnt -> f [Assign n (Call (Ref "fst") [Ref "@r"])] ++ cnt)
+          modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
+          modify (\f -> \cnt -> f [Assign "@" (Call (Ref "trd") [Ref "@r"])] ++ cnt)
         _ -> noobj
     _ -> noobj
 
-  return $ Ref "_"
+  return $ Ref "@"
 convert (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
 
 parseExpr str = case parse expression "" str of
