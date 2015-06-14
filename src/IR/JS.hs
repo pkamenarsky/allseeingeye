@@ -60,10 +60,18 @@ convert (UnaryAssignExpr a op (LVar a' lv))
     getOp PostfixInc = ("inc", False)
     getOp PrefixDec  = ("dec", True )
     getOp PostfixDec = ("dec", False)
-{-
-convert (InfixExpr a InfixOp (Expression a) (Expression a))
-convert (CondExpr a (Expression a) (Expression a) (Expression a))
--}
+convert (InfixExpr a op l r) = do
+  l' <- convert l
+  r' <- convert r
+
+  return $ Call (Ref $ show op) [l', r']
+
+convert (CondExpr a cnd t f) = do
+  cnd' <- convert cnd
+  t'   <- convert t
+  f'   <- convert f
+
+  return (Call (Ref "cond") [cnd', Lambda [] (P [Return t']), Lambda [] (P [Return f'])])
 convert (AssignExpr a op (LVar a' lv) e) = do
   e' <- convert e
   modify (\f -> \cnt -> f [Assign lv e'] ++ cnt)
