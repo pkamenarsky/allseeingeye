@@ -106,7 +106,16 @@ convertE (CallExpr a f xs) = do
   pushBack $ Assign "@" (Call (Ref "trd") [Ref "@r"])
 
   return $ Ref "@"
-convertE (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
+convertE (FuncExpr a n xs ss) = do
+  let ss' = execState (mapM_ convertS ss) id $ []
+      l   = Lambda (map (\(Id _ n) -> n) xs) (P ss')
+
+  case n of
+    Just (Id _ n) -> do
+      pushBack $ Assign n l
+      return $ Ref n
+    _ ->
+      return l
 
 convertS :: Statement a -> State ([S] -> [S]) ()
 convertS (BlockStmt a ss) = mapM_ convertS ss
