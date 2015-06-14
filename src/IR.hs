@@ -68,7 +68,7 @@ normalize :: L -> L
 normalize (Cnst c)  = (Cnst c)
 normalize (Var n)   = (Var n)
 normalize (Extrn n) = (Extrn n)
-normalize e@(App (App (Var "merge") x) (Var "world"))
+normalize (App (App (Var "merge") x) (Var "world"))
   | null [ () | Var "world" <- universe x' ] = x'
   | otherwise = (App (App (Var "merge") x') (Var "world"))
     where x' = normalize x
