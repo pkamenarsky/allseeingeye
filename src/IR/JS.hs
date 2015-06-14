@@ -21,6 +21,9 @@ import           IR
 fns :: M.Map String [Int]
 fns = M.fromList [ ( "push", [0] ) ]
 
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust = flip (maybe (return ()))
+
 convert :: Expression a -> State ([S] -> [S]) E
 convert (StringLit a lit) = return $ Const lit
 convert (RegexpLit a lit glb csi) = return $ Const lit
@@ -81,14 +84,11 @@ convert (CallExpr a f xs) = do
       getobj False _                   = Nothing
       getobj _     _                   = Nothing
 
-  case getobj False f of
-    Just n -> do
-      modify (\f -> \cnt -> f [Assign n (Call (Ref "fst") [Ref "@r"])] ++ cnt)
-      modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
-      modify (\f -> \cnt -> f [Assign "@" (Call (Ref "trd") [Ref "@r"])] ++ cnt)
-    _ -> do
-      modify (\f -> \cnt -> f [Assign "@" (Call (Ref "fst") [Ref "@r"])] ++ cnt)
-      modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
+  whenJust (getobj False f) $ \n ->
+    modify (\f -> \cnt -> f [Assign n (Call (Ref "fst") [Ref "@r"])] ++ cnt)
+
+  modify (\f -> \cnt -> f [Assign "world" (Call (Ref "snd") [Ref "@r"])] ++ cnt)
+  modify (\f -> \cnt -> f [Assign "@" (Call (Ref "trd") [Ref "@r"])] ++ cnt)
 
   return $ Ref "@"
 convert (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
