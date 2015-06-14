@@ -27,36 +27,36 @@ whenJust = flip (maybe (return ()))
 pushBack st = modify (\f -> \cnt -> f [st] ++ cnt)
 pushFront st = modify (\f -> \cnt -> f cnt ++ [st])
 
-convert :: Expression a -> State ([S] -> [S]) E
-convert (StringLit a lit) = return $ Const lit
-convert (RegexpLit a lit glb csi) = return $ Const lit
-convert (NumLit a lit) = return $ Const $ show lit
-convert (IntLit a lit) = return $ Const $ show lit
-convert (BoolLit a lit) = return $ Const $ show lit
-convert (NullLit a) = return $ Ref "null"
+convertE :: Expression a -> State ([S] -> [S]) E
+convertE (StringLit a lit) = return $ Const lit
+convertE (RegexpLit a lit glb csi) = return $ Const lit
+convertE (NumLit a lit) = return $ Const $ show lit
+convertE (IntLit a lit) = return $ Const $ show lit
+convertE (BoolLit a lit) = return $ Const $ show lit
+convertE (NullLit a) = return $ Ref "null"
 {-
-convert (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convert $ head es))))
+convertE (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convertE $ head es))))
                               (App (Var "newArray") (Var "world"))
 
-convert (ObjectLit a [(Prop a, Expression a)])
-convert (ThisRef a)
+convertE (ObjectLit a [(Prop a, Expression a)])
+convertE (ThisRef a)
 -}
-convert (VarRef a (Id a' ref)) = return $ Ref ref
-convert (DotRef _ e (Id _ ref)) = do
-  e' <- convert e
+convertE (VarRef a (Id a' ref)) = return $ Ref ref
+convertE (DotRef _ e (Id _ ref)) = do
+  e' <- convertE e
   return $ Call (Ref "get") [e', Const ref]
-convert (BracketRef a e i) = do
-  e' <- convert e
-  i' <- convert i
+convertE (BracketRef a e i) = do
+  e' <- convertE e
+  i' <- convertE i
   return $ Call (Ref "get_elem") [e', i']
-convert (NewExpr a f xs) = do
-  f'  <- convert f
-  xs' <- mapM convert xs
+convertE (NewExpr a f xs) = do
+  f'  <- convertE f
+  xs' <- mapM convertE xs
   return $ Call f' xs'
-convert (PrefixExpr a op e) = do
-  e' <- convert e
+convertE (PrefixExpr a op e) = do
+  e' <- convertE e
   return $ Call (Ref $ show op) [e']
-convert (UnaryAssignExpr a op (LVar a' lv))
+convertE (UnaryAssignExpr a op (LVar a' lv))
   | (opname, True)  <- op' = do
       pushBack $ Assign lv (Call (Ref opname) [Ref lv])
       return $ Ref lv
@@ -69,28 +69,28 @@ convert (UnaryAssignExpr a op (LVar a' lv))
     getOp PostfixInc = ("inc", False)
     getOp PrefixDec  = ("dec", True )
     getOp PostfixDec = ("dec", False)
-convert (InfixExpr a op l r) = do
-  l' <- convert l
-  r' <- convert r
+convertE (InfixExpr a op l r) = do
+  l' <- convertE l
+  r' <- convertE r
   return $ Call (Ref $ show op) [l', r']
-convert (CondExpr a cnd t f) = do
-  cnd' <- convert cnd
-  t'   <- convert t
-  f'   <- convert f
+convertE (CondExpr a cnd t f) = do
+  cnd' <- convertE cnd
+  t'   <- convertE t
+  f'   <- convertE f
   return (Call (Ref "cond") [cnd', Lambda [] (P [Return t']), Lambda [] (P [Return f'])])
-convert (AssignExpr a op (LVar a' lv) e) = do
-  e' <- convert e
+convertE (AssignExpr a op (LVar a' lv) e) = do
+  e' <- convertE e
   if op == OpAssign
     then pushBack $ Assign lv e'
     else pushBack $ Assign lv (Call (Ref $ show op) [Ref lv, e'])
   return $ Ref lv
-convert (ListExpr a es) = do
-  let go e@(AssignExpr _ _ _ _) = convert e
-      go e                      = convert (AssignExpr a OpAssign (LVar a "@") e)
+convertE (ListExpr a es) = do
+  let go e@(AssignExpr _ _ _ _) = convertE e
+      go e                      = convertE (AssignExpr a OpAssign (LVar a "@") e)
   last <$> mapM go es
-convert (CallExpr a f xs) = do
-  f'  <- convert f
-  xs' <- mapM convert xs
+convertE (CallExpr a f xs) = do
+  f'  <- convertE f
+  xs' <- mapM convertE xs
 
   pushBack $ Assign "@r" (Call f' xs')
 
@@ -106,13 +106,16 @@ convert (CallExpr a f xs) = do
   pushBack $ Assign "@" (Call (Ref "trd") [Ref "@r"])
 
   return $ Ref "@"
-convert (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
+convertE (FuncExpr a (Just (Id a2 n)) xs ss) = undefined
 
 convertS :: Statement a -> State ([S] -> [S]) ()
 convertS (BlockStmt a ss) = mapM_ convertS ss
+convertS (EmptyStmt a) = return ()
+convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
+convertS (ExprStmt a e) = do
+  e <- convertE e
+  pushBack $ Assign "@" e
 {-
-convertS (EmptyStmt a)
-convertS (ExprStmt a (Expression a))
 convertS (IfStmt a (Expression a) (Statement a) (Statement a))
 convertS (IfSingleStmt a (Expression a) (Statement a))
 convertS (SwitchStmt a (Expression a) [CaseClause a])
@@ -126,19 +129,32 @@ convertS (ForStmt a (ForInit a) (Maybe (Expression a)) (Maybe (Expression a)) (S
 convertS (ForStmt a init test increment body, for (init; test, increment) body, spec 12.)
 convertS (TryStmt a (Statement a) (Maybe (CatchClause a)) (Maybe (Statement a)))
 convertS (ThrowStmt a (Expression a))
-convertS (ReturnStmt a (Maybe (Expression a)))
+-}
+convertS (ReturnStmt a (Just e)) = do
+  e' <- convertE e
+  pushBack $ Return (Call (Ref "merge") [e', Ref "world"])
+convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref "world")
+{-
 convertS (WithStmt a (Expression a) (Statement a))
 convertS (VarDeclStmt a [VarDecl a])
 convertS (FunctionStmt a (Id a) [Id a] [Statement a])
 -}
 
+parseStmt str = case parse statement "" str of
+  Right expr -> expr
+  Left err   -> error $ show err
+
 parseExpr str = case parse expression "" str of
   Right expr -> expr
   Left err   -> error $ show err
 
+testConvertE :: String -> P
+testConvertE e = P $ ss [Return (Call (Ref "merge") [e', Ref "world"])]
+  where (e', ss) = runState (convertE $ parseExpr e) id
+
 testConvert :: String -> P
-testConvert e = P $ ss [Return (Call (Ref "merge") [e', Ref "world"])]
-  where (e', ss) = runState (convert $ parseExpr e) id
+testConvert e = P $ ss []
+  where (_, ss) = runState (convertS $ parseStmt e) id
 
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
 
