@@ -92,7 +92,7 @@ convertE (CallExpr a f xs) = do
   f'  <- convertE f
   xs' <- mapM convertE xs
 
-  pushBack $ Assign "@r" (Call f' xs')
+  pushBack $ Assign "@r" (Call f' (xs' ++ [Ref "world"]))
 
   let getobj _    (DotRef _ lv _)      = getobj True lv
       getobj True (VarRef _ (Id _ lv)) = Just lv
@@ -100,10 +100,10 @@ convertE (CallExpr a f xs) = do
       getobj _     _                   = Nothing
 
   whenJust (getobj False f) $ \n ->
-    pushBack $ Assign n (Call (Ref "fst") [Ref "@r"])
+    pushBack $ Assign n (Call (Ref "get_obj") [Ref "@r"])
 
-  pushBack $ Assign "world" (Call (Ref "snd") [Ref "@r"])
-  pushBack $ Assign "@" (Call (Ref "trd") [Ref "@r"])
+  pushBack $ Assign "world" (Call (Ref "get_world") [Ref "@r"])
+  pushBack $ Assign "@" (Call (Ref "get_result") [Ref "@r"])
 
   return $ Ref "@"
 convertE (FuncExpr a n xs ss) = do
