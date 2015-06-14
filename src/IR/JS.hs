@@ -74,7 +74,6 @@ convert (CondExpr a cnd t f) = do
   cnd' <- convert cnd
   t'   <- convert t
   f'   <- convert f
-
   return (Call (Ref "cond") [cnd', Lambda [] (P [Return t']), Lambda [] (P [Return f'])])
 convert (AssignExpr a op (LVar a' lv) e) = do
   e' <- convert e
@@ -83,7 +82,6 @@ convert (AssignExpr a op (LVar a' lv) e) = do
 convert (ListExpr a es) = do
   let go e@(AssignExpr _ _ _ _) = convert e
       go e                      = convert (AssignExpr a OpAssign (LVar a "@") e)
-
   last <$> mapM go es
 convert (CallExpr a f xs) = do
   f'  <- convert f
