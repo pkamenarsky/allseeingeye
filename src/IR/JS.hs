@@ -42,11 +42,17 @@ convert (VarRef a (Id a' ref)) = return $ Ref ref
 convert (DotRef _ e (Id _ ref)) = do
   e' <- convert e
   return $ Call (Ref "get") [e', Const ref]
-{-
-convert (BracketRef a (Expression a) {- container -} (Expression a) {- key -})
-convert (NewExpr a (Expression a) {- constructor -} [Expression a])
-convert (PrefixExpr a PrefixOp (Expression a))
--}
+convert (BracketRef a e i) = do
+  e' <- convert e
+  i' <- convert i
+  return $ Call (Ref "get_elem") [e', i']
+convert (NewExpr a f xs) = do
+  f'  <- convert f
+  xs' <- mapM convert xs
+  return $ Call f' xs'
+convert (PrefixExpr a op e) = do
+  e' <- convert e
+  return $ Call (Ref $ show op) [e']
 convert (UnaryAssignExpr a op (LVar a' lv))
   | (opname, True)  <- op' = do
       modify (\f -> \cnt -> f [Assign lv (Call (Ref opname) [Ref lv])] ++ cnt)
@@ -63,9 +69,7 @@ convert (UnaryAssignExpr a op (LVar a' lv))
 convert (InfixExpr a op l r) = do
   l' <- convert l
   r' <- convert r
-
   return $ Call (Ref $ show op) [l', r']
-
 convert (CondExpr a cnd t f) = do
   cnd' <- convert cnd
   t'   <- convert t
