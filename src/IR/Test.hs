@@ -119,7 +119,10 @@ js2 =
   "f = function(x) { return x + x; }; \
   \ x = y; \
   \ f(x); \
+  \ g(x); \
   \ return x; \
   \ }"
 
-jss = simplify (sToP $ testConvert js1) `lmtree` simplify (sToP $ testConvert js2)
+jss1 = simplify (sToP $ testConvert js1)
+jss2 = simplify (sToP $ testConvert js2)
+jss  = jss1 `lmtree` jss2

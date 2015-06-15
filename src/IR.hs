@@ -7,6 +7,7 @@ import           Control.Monad
 import           Control.Monad.State
 
 import           Data.Data
+import           Data.Function
 import           Data.List
 import qualified Data.Map                     as M
 import           Data.Maybe
@@ -113,20 +114,40 @@ fixpoint f a | a == a' = a
 simplify :: L -> L
 simplify = fixpoint (rewriteL . normalize)
 
-x `ne` y | length (universe x) > length (universe y) = x
-         | otherwise                                 = y
+subtree :: L -> L -> Maybe L
+subtree (Cnst c1) (Cnst c2)
+  | c1 == c2  = Just $ Cnst c1
+  | otherwise = Nothing
+subtree (Var c1) (Var c2)
+  | c1 == c2  = Just $ Var c1
+  | otherwise = Nothing
+subtree (App f1 xs1) (App f2 xs2)
+  | Just f  <- subtree f1 f2
+  , Just xs <- subtree xs1 xs2 = Just $ App f xs
+  | otherwise = Nothing
+subtree (Lam n1 f1) (Lam n2 f2)
+  | n1 == n2
+  , Just f <- subtree f1 f2 = Just $ Lam n1 f
+  | otherwise = Nothing
+subtree _ _ = Nothing
 
-lmtree :: L -> L -> [L]
-lmtree (Cnst c1) (Cnst c2) | c1 == c2 = [Cnst c1]
-                           | otherwise = []
-lmtree (Var c1) (Var c2) | c1 == c2 = [Var c1]
-                         | otherwise = []
-lmtree l1@(App f1 xs1) l2@(App f2 xs2) | [f] <- lmtree f1 f2
-                                       , [xs] <- lmtree xs1 xs2
-                                       = [App f xs]
-                                       | otherwise = (lmtree f1 l2) `ne` (lmtree xs1 l2)
-                                                `ne` (lmtree f2 l1) `ne` (lmtree xs2 l1)
-lmtree l1@(Lam n1 f1) l2@(Lam n2 f2) | n1 == n2
-                                     , [f] <- lmtree f1 f2 = [Lam n1 f]
-                                     | otherwise = lmtree f1 l2 ++ lmtree f2 l1
-lmtree l1 l2 = []
+tlength = length . universe
+
+lmtree :: L -> L -> Maybe L
+lmtree l@(App f1 xs1) r@(App f2 xs2)
+ | trees@(x:_) <- catMaybes [ subtree l r
+                            , subtree l f2
+                            , subtree l xs2
+                            , subtree r f1
+                            , subtree r xs1
+                            ]
+   = Just $ maximumBy (compare `on` tlength) trees
+ | otherwise = Nothing
+lmtree l@(Lam n1 f1) r@(Lam n2 f2)
+ | trees@(x:_) <- catMaybes [ subtree l r
+                            , subtree l f2
+                            , subtree r f1
+                            ]
+   = Just $ maximumBy (compare `on` tlength) trees
+ | otherwise = Nothing
+lmtree l r = subtree l r
