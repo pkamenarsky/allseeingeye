@@ -24,11 +24,12 @@ executable allseeingeye
                        aeson,
                        bytestring,
                        containers,
+                       --LambdaPrettyQuote,
                        language-ecmascript,
-                       language-ecmascript-analysis,
                        mtl,
                        random,
                        parsec,
+                       template-haskell,
                        text,
                        uniplate,
                        unordered-containers

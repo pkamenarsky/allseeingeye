@@ -10,6 +10,7 @@ import           Data.Maybe
 import           Graph
 import           IR
 import           IR.Serialize
+import           IR.TH
 
 pr2 = P
        [ Decl "x" (Const "5")

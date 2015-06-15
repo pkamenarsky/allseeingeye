@@ -16,8 +16,6 @@ import           Data.Maybe
 import           Data.STRef
 import           Data.Typeable
 
-import           Language.ECMAScript3.Analysis.LexicalEnvironment
-
 import           Language.ECMAScript3.Parser
 import           Language.ECMAScript3.PrettyPrint
 import           Language.ECMAScript3.Syntax
