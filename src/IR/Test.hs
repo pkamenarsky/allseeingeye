@@ -9,6 +9,7 @@ import           Data.Maybe
 
 import           Graph
 import           IR
+import           IR.JS
 import           IR.Serialize
 
 pr2 = P
@@ -105,3 +106,20 @@ l5 = sToE pr5
 l6 = sToP pr6
 
 l7 = sToP pr7
+
+-- js
+
+js1 =
+  "f = function(x) { return x + x; }; \
+  \ x = y; \
+  \ return f(x); \
+  \ }"
+
+js2 =
+  "f = function(x) { return x + x; }; \
+  \ x = y; \
+  \ f(x); \
+  \ return x; \
+  \ }"
+
+jss = simplify (sToP $ testConvert js1) `lmtree` simplify (sToP $ testConvert js2)

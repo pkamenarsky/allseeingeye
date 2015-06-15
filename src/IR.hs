@@ -16,9 +16,11 @@ import           Data.Generics.Uniplate.Data
 
 import           Graph
 
+{-
 import           Language.Lambda.Untyped.Parser
 import           Language.Lambda.Untyped.Syntax
 import           Language.Lambda.Untyped.Quote
+-}
 
 import Debug.Trace
 
@@ -40,7 +42,12 @@ data S = Decl Name E
 
 data P = P [S] deriving (Eq, Ord, Data, Typeable)
 
-type L = Expr
+data L = Cnst String
+       | Var Name
+       | Extrn Name
+       | App L L
+       | Lam Name L
+       deriving (Eq, Ord, Data, Typeable)
 
 sToE :: E -> L
 sToE (Const c)     = Cnst c
@@ -98,10 +105,6 @@ rewriteL (App (App (Var "merge") x) y)
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
 
-x `ne` [] = x
-[] `ne` y = y
-_ `ne` _ = []
-
 fixpoint :: Eq a => (a -> a) -> a -> a
 fixpoint f a | a == a' = a
              | otherwise = fixpoint f a'
@@ -109,6 +112,9 @@ fixpoint f a | a == a' = a
 
 simplify :: L -> L
 simplify = fixpoint (rewriteL . normalize)
+
+x `ne` y | length (universe x) > length (universe y) = x
+         | otherwise                                 = y
 
 lmtree :: L -> L -> [L]
 lmtree (Cnst c1) (Cnst c2) | c1 == c2 = [Cnst c1]
@@ -118,8 +124,8 @@ lmtree (Var c1) (Var c2) | c1 == c2 = [Var c1]
 lmtree l1@(App f1 xs1) l2@(App f2 xs2) | [f] <- lmtree f1 f2
                                        , [xs] <- lmtree xs1 xs2
                                        = [App f xs]
-                                       | otherwise = (lmtree f1 l2) ++ (lmtree xs1 l2)
-                                                  ++ (lmtree f2 l1) ++ (lmtree xs2 l1)
+                                       | otherwise = (lmtree f1 l2) `ne` (lmtree xs1 l2)
+                                                `ne` (lmtree f2 l1) `ne` (lmtree xs2 l1)
 lmtree l1@(Lam n1 f1) l2@(Lam n2 f2) | n1 == n2
                                      , [f] <- lmtree f1 f2 = [Lam n1 f]
                                      | otherwise = lmtree f1 l2 ++ lmtree f2 l1
