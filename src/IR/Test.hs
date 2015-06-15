@@ -110,17 +110,18 @@ l7 = sToP pr7
 -- js
 
 js1 =
-  "f = function(x) { return x + x; }; \
-  \ x = y; \
-  \ return f(x); \
+  "f = function(x, y) { return x + y; }; \
+  \ a = h; \
+  \ b = h; \
+  \ a++; \
+  \ b++; \
+  \ return f(a, b); \
   \ }"
 
 js2 =
-  "f = function(x) { return x + x; }; \
-  \ x = y; \
-  \ f(x); \
-  \ g(x); \
-  \ return x; \
+  "f = function(x, y) { return x + y; }; \
+  \ a = b = ++h; \
+  \ return g(f(a, b)); \
   \ }"
 
 jss1 = simplify (sToP $ testConvert js1)
