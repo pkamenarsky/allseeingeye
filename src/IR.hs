@@ -136,17 +136,17 @@ tlength = length . universe
 lmtree :: L -> L -> Maybe L
 lmtree l@(App f1 xs1) r@(App f2 xs2)
  | trees@(x:_) <- catMaybes [ subtree l r
-                            , subtree l f2
-                            , subtree l xs2
-                            , subtree r f1
-                            , subtree r xs1
+                            , lmtree l f2
+                            , lmtree l xs2
+                            , lmtree r f1
+                            , lmtree r xs1
                             ]
    = Just $ maximumBy (compare `on` tlength) trees
  | otherwise = Nothing
 lmtree l@(Lam n1 f1) r@(Lam n2 f2)
  | trees@(x:_) <- catMaybes [ subtree l r
-                            , subtree l f2
-                            , subtree r f1
+                            , lmtree l f2
+                            , lmtree r f1
                             ]
    = Just $ maximumBy (compare `on` tlength) trees
  | otherwise = Nothing
