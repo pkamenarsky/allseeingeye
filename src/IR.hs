@@ -91,6 +91,7 @@ rewriteL (App (App (Var "get") obj) field)
 -- rewriteL [lam| get *obj *field |]
   | [value] <- [ value | (App (App (App (Var "set") _) field') value) <- universe obj, field == field' ] = value
   | otherwise = (App (App (Var "get") (rewriteL obj)) (rewriteL field))
+{-
 rewriteL (App (App (Var "merge") (App (Var "get_result") x)) y)
   |  null [ () | Var "world" <- universe x' ]
   && null [ () | Var "world" <- universe y' ] = x'
@@ -103,6 +104,8 @@ rewriteL (App (App (Var "merge") x) y)
   | otherwise = (App (App (Var "merge") x') y')
     where x' = rewriteL x
           y' = rewriteL y
+-}
+rewriteL (Var "get_result" `App` (Var "merge" `App` r `App` _)) = rewriteL r
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
 

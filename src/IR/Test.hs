@@ -116,7 +116,7 @@ js1 =
   \ b = h; \
   \ a++; \
   \ b++; \
-  \ return getf().o(a, b); \
+  \ return getf().add(a, b); \
   \ }"
 
 js2 =
