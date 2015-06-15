@@ -34,5 +34,13 @@ instance Show L where
   show (Cnst c)   = "\"" ++ c ++ "\""
   show (Var n)    = n
   show (Extrn n)  = "‹" ++ n ++ "›"
-  show (App f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
-  show (Lam n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
+
+  --show (App f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
+  --show (Lam n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
+
+  show (App f@(Lam _ _) x@(App _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")"
+  show (App f x@(App _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App f@(Lam _ _) x)            = "(" ++ show f ++ ") " ++ show x ++ ""
+  show (App f x@(Lam _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App f x)                      = "" ++ show f ++ " " ++ show x ++ ""
+  show (Lam n f)                      = "λ" ++ n ++ " → " ++ show f ++ ""

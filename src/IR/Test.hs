@@ -111,11 +111,12 @@ l7 = sToP pr7
 
 js1 =
   "f = function(x, y) { return x + y; }; \
+  \ getf = function() { o = new Object(); o.add = f; return o } \
   \ a = h; \
   \ b = h; \
   \ a++; \
   \ b++; \
-  \ return f(a, b); \
+  \ return getf().o(a, b); \
   \ }"
 
 js2 =
