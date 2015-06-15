@@ -68,10 +68,6 @@ normalize :: L -> L
 normalize (Cnst c)  = (Cnst c)
 normalize (Var n)   = (Var n)
 normalize (Extrn n) = (Extrn n)
-normalize (App (App (Var "merge") x) (Var "world"))
-  | null [ () | Var "world" <- universe x' ] = x'
-  | otherwise = (App (App (Var "merge") x') (Var "world"))
-    where x' = normalize x
 normalize (App f x) = go (normalize f) (normalize x)
   where go (Lam n e) x' = normalize $ subst n x' e
         go f' x'        = App f' x'
@@ -90,12 +86,32 @@ rewriteL (Extrn n) = (Extrn n)
 rewriteL (App (App (Var "get") obj) field)
   | [value] <- [ value | (App (App (App (Var "set") _) field') value) <- universe obj, field == field' ] = value
   | otherwise = (App (App (Var "get") (rewriteL obj)) (rewriteL field))
+rewriteL (App (App (Var "merge") (App (Var "get_result") x)) y)
+  |  null [ () | Var "world" <- universe x' ]
+  && null [ () | Var "world" <- universe y' ] = x'
+  | otherwise = (App (App (Var "merge") (App (Var "get_result") x')) y')
+    where x' = rewriteL x
+          y' = rewriteL y
+rewriteL (App (App (Var "merge") x) y)
+  |  null [ () | Var "world" <- universe x' ]
+  && null [ () | Var "world" <- universe y' ] = x'
+  | otherwise = (App (App (Var "merge") x') y')
+    where x' = rewriteL x
+          y' = rewriteL y
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
 
 x `ne` [] = x
 [] `ne` y = y
 _ `ne` _ = []
+
+fixpoint :: Eq a => (a -> a) -> a -> a
+fixpoint f a | a == a' = a
+             | otherwise = fixpoint f a'
+  where a' = f a
+
+simplify :: L -> L
+simplify = fixpoint (rewriteL . normalize)
 
 lmtree :: L -> L -> [L]
 lmtree (Cnst c1) (Cnst c2) | c1 == c2 = [Cnst c1]
