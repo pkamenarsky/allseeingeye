@@ -27,6 +27,11 @@ whenJust = flip (maybe (return ()))
 pushBack st = modify (\f -> \cnt -> f [st] ++ cnt)
 pushFront st = modify (\f -> \cnt -> f cnt ++ [st])
 
+getobj _    (DotRef _ lv _)      = getobj True lv
+getobj True (VarRef _ (Id _ lv)) = Just lv
+getobj False _                   = Nothing
+getobj _     _                   = Nothing
+
 convertE :: Expression a -> State ([S] -> [S]) E
 convertE (StringLit a lit) = return $ Const lit
 convertE (RegexpLit a lit glb csi) = return $ Const lit
@@ -84,6 +89,14 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
     then pushBack $ Assign lv e'
     else pushBack $ Assign lv (Call (Ref $ show op) [Ref lv, e'])
   return $ Ref lv
+convertE (AssignExpr a op (LDot a' lv fld) rv) = do
+  lv' <- convertE lv
+  rv' <- convertE rv
+  case getobj True lv of
+    Just n -> do
+      pushBack $ Assign n (Call (Ref "set") [lv', Const fld, rv'])
+      return $ Ref n
+    Nothing -> error "Dot expression without dotref?"
 convertE (ListExpr a es) = do
   let go e@(AssignExpr _ _ _ _) = convertE e
       go e                      = convertE (AssignExpr a OpAssign (LVar a "@") e)
@@ -93,11 +106,6 @@ convertE (CallExpr a f xs) = do
   xs' <- mapM convertE xs
 
   pushBack $ Assign "@r" (Call f' (xs' ++ [Ref "world"]))
-
-  let getobj _    (DotRef _ lv _)      = getobj True lv
-      getobj True (VarRef _ (Id _ lv)) = Just lv
-      getobj False _                   = Nothing
-      getobj _     _                   = Nothing
 
   whenJust (getobj False f) $ \n ->
     pushBack $ Assign n (Call (Ref "get_obj") [Ref "@r"])
