@@ -112,10 +112,15 @@ l7 = sToP pr7
 js1 =
   "f = function(x, y) { return x + y; }; \
   \ getf = function(f_add) { o = new Object(); o.add = f_add; return o } \
+  \ console.log('log1'); \
   \ a = h; \
   \ b = h; \
   \ a++; \
   \ b++; \
+  \ while(h > 5) { \
+    \ console.log('log2'); \
+    \ h--; \
+  \ } \
   \ return getf(f).add(a, b); \
   \ }"
 
@@ -127,4 +132,4 @@ js2 =
 
 jss1 = simplify (sToP $ testConvert js1)
 jss2 = simplify (sToP $ testConvert js2)
-jss  = jss1 `lmtree` jss2
+jss  = jss2 `lmtree1` jss1

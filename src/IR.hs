@@ -106,6 +106,7 @@ rewriteL (App (App (Var "merge") x) y)
           y' = rewriteL y
 -}
 rewriteL (Var "get_result" `App` (Var "merge" `App` r `App` _)) = rewriteL r
+rewriteL (Var "get_world" `App` (Var "merge" `App` _ `App` w)) = rewriteL w
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
 
@@ -132,6 +133,7 @@ subtree (Lam n1 f1) (Lam n2 f2)
   | n1 == n2
   , Just f <- subtree f1 f2 = Just $ Lam n1 f
   | otherwise = Nothing
+subtree (Var "world") (Var "get_world" `App` _) = Just $ Var "world"
 subtree _ _ = Nothing
 
 tlength = length . universe
@@ -154,3 +156,19 @@ lmtree l@(Lam n1 f1) r@(Lam n2 f2)
    = Just $ maximumBy (compare `on` tlength) trees
  | otherwise = Nothing
 lmtree l r = subtree l r
+
+lmtree1 :: L -> L -> Maybe L
+lmtree1 l@(App f1 xs1) r@(App f2 xs2)
+ | trees@(x:_) <- catMaybes [ subtree l r
+                            , lmtree1 l f2
+                            , lmtree1 l xs2
+                            ]
+   = Just $ maximumBy (compare `on` tlength) trees
+ | otherwise = Nothing
+lmtree1 l@(Lam n1 f1) r@(Lam n2 f2)
+ | trees@(x:_) <- catMaybes [ subtree l r
+                            , lmtree1 l f2
+                            ]
+   = Just $ maximumBy (compare `on` tlength) trees
+ | otherwise = Nothing
+lmtree1 l r = subtree l r
