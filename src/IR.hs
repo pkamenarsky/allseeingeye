@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TupleSections, TypeSynonymInstances #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TupleSections, TemplateHaskell, TypeSynonymInstances #-}
 
 module IR where
 
@@ -15,6 +15,9 @@ import           Data.Typeable
 import           Data.Generics.Uniplate.Data
 
 import           Graph
+
+import           Language.Lambda.Untyped.Syntax
+import           Language.Lambda.Untyped.Quote
 
 import Debug.Trace
 
@@ -36,12 +39,7 @@ data S = Decl Name E
 
 data P = P [S] deriving (Eq, Ord, Data, Typeable)
 
-data L = Cnst String
-       | Var Name
-       | Extrn Name
-       | App L L
-       | Lam Name L
-       deriving (Eq, Ord, Data, Typeable)
+type L = Expr
 
 sToE :: E -> L
 sToE (Const c)     = Cnst c
@@ -60,14 +58,12 @@ subst :: Name -> L -> L -> L
 subst _ _ e'@(Cnst _) = e'
 subst n e e'@(Var n') | n == n'   = e
                       | otherwise = e'
-subst _ _ e'@(Extrn _)  = e'
 subst n e e'@(App f x)  = App (subst n e f) (subst n e x)
 subst n e e'@(Lam n' f) = Lam n' (subst n e f)
 
 normalize :: L -> L
 normalize (Cnst c)  = (Cnst c)
 normalize (Var n)   = (Var n)
-normalize (Extrn n) = (Extrn n)
 normalize (App f x) = go (normalize f) (normalize x)
   where go (Lam n e) x' = normalize $ subst n x' e
         go f' x'        = App f' x'
@@ -82,7 +78,6 @@ normalize (Lam n f) = go (normalize f)
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
-rewriteL (Extrn n) = (Extrn n)
 rewriteL (App (App (Var "get") obj) field)
   | [value] <- [ value | (App (App (App (Var "set") _) field') value) <- universe obj, field == field' ] = value
   | otherwise = (App (App (Var "get") (rewriteL obj)) (rewriteL field))
@@ -118,8 +113,6 @@ lmtree (Cnst c1) (Cnst c2) | c1 == c2 = [Cnst c1]
                            | otherwise = []
 lmtree (Var c1) (Var c2) | c1 == c2 = [Var c1]
                          | otherwise = []
-lmtree (Extrn c1) (Extrn c2) | c1 == c2 = [Extrn c1]
-                             | otherwise = []
 lmtree l1@(App f1 xs1) l2@(App f2 xs2) | [f] <- lmtree f1 f2
                                        , [xs] <- lmtree xs1 xs2
                                        = [App f xs]
