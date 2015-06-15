@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TupleSections, TemplateHaskell, TypeSynonymInstances #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TupleSections, QuasiQuotes, TypeSynonymInstances #-}
 
 module IR where
 
@@ -16,6 +16,7 @@ import           Data.Generics.Uniplate.Data
 
 import           Graph
 
+import           Language.Lambda.Untyped.Parser
 import           Language.Lambda.Untyped.Syntax
 import           Language.Lambda.Untyped.Quote
 
@@ -79,6 +80,7 @@ rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
 rewriteL (App (App (Var "get") obj) field)
+-- rewriteL [lam| get *obj *field |]
   | [value] <- [ value | (App (App (App (Var "set") _) field') value) <- universe obj, field == field' ] = value
   | otherwise = (App (App (Var "get") (rewriteL obj)) (rewriteL field))
 rewriteL (App (App (Var "merge") (App (Var "get_result") x)) y)
