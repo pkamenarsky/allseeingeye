@@ -126,10 +126,10 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
       else pushBack $ Assign lv (Call (Ref $ show op) [Ref lv, e'])
     else case M.lookup lv (unWorld st) of
       Just i  -> do
-        pushBack $ Assign world (Call (Ref "set_slot") [Const $ show i, e', Ref worldFn])
+        pushBack $ Assign world (Call (Ref "set_slot") [Const $ show i, e', Ref world])
         pushBack $ Assign lv e'
       Nothing -> do
-        pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref worldFn])
+        pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref world])
         pushBack $ Assign lv e'
   return $ Ref lv
 convertE (AssignExpr a op (LDot a' lv fld) rv) = do
@@ -225,7 +225,7 @@ parseExpr str = case parse expression "" str of
   Left err   -> error $ show err
 
 testConvert :: String -> P
-testConvert e = P $ unSS ss []
+testConvert e = P $ unSS ss [Return (Ref world)]
   where (_, ss)       = runState (convertS $ BlockStmt a pr) idContext
         (Script a pr) = parseProgram e
 
