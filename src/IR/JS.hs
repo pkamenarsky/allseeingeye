@@ -17,7 +17,13 @@ import           Language.ECMAScript3.Syntax.Annotations
 
 import           IR
 
-data Context = Context { unSS :: [S] -> [S] }
+data Context = Context
+  { unSS    :: [S] -> [S]
+  , unWorld :: M.Map [Int] String
+  }
+
+idContext :: Context
+idContext = Context id M.empty
 
 -- function name, impure arguments (0 is this, -1 is world)
 fns :: M.Map String [Int]
@@ -26,8 +32,8 @@ fns = M.fromList [ ( "push", [0] ) ]
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust = flip (maybe (return ()))
 
-pushBack st = modify (\(Context f) -> Context $ \cnt -> f [st] ++ cnt)
-pushFront st = modify (\(Context f) -> Context $ \cnt -> f cnt ++ [st])
+pushBack st = modify (\(Context f w) -> Context (\cnt -> f [st] ++ cnt) w)
+pushFront st = modify (\(Context f w) -> Context (\cnt -> f cnt ++ [st]) w)
 
 getobj _    (DotRef _ lv _)      = getobj True lv
 getobj True (VarRef _ (Id _ lv)) = Just lv
@@ -117,7 +123,7 @@ convertE (CallExpr a f xs) = do
 
   return $ Ref "@"
 convertE (FuncExpr a n xs ss) = do
-  let ss' = unSS (execState (mapM_ convertS ss) (Context id)) []
+  let ss' = unSS (execState (mapM_ convertS ss) idContext) []
       l   = Lambda (map (\(Id _ n) -> n) xs ++ [world]) (P ss')
 
   case n of
@@ -175,7 +181,7 @@ parseExpr str = case parse expression "" str of
 
 testConvert :: String -> P
 testConvert e = P $ unSS ss []
-  where (_, ss)       = runState (convertS $ BlockStmt a pr) (Context id)
+  where (_, ss)       = runState (convertS $ BlockStmt a pr) idContext
         (Script a pr) = parseProgram e
 
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
