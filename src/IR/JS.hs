@@ -105,18 +105,18 @@ convertE (CallExpr a f xs) = do
   f'  <- convertE f
   xs' <- mapM convertE xs
 
-  pushBack $ Assign "@r" (Call f' (xs' ++ [Ref "world"]))
+  pushBack $ Assign "@r" (Call f' (xs' ++ [Ref world]))
 
   whenJust (getobj False f) $ \n ->
-    pushBack $ Assign n (Call (Ref "get_obj") [Ref "@r"])
+    pushBack $ Assign n (Call (Ref objectFn) [Ref "@r"])
 
-  pushBack $ Assign "world" (Call (Ref "get_world") [Ref "@r"])
-  pushBack $ Assign "@" (Call (Ref "get_result") [Ref "@r"])
+  pushBack $ Assign world (Call (Ref worldFn) [Ref "@r"])
+  pushBack $ Assign "@" (Call (Ref resultFn) [Ref "@r"])
 
   return $ Ref "@"
 convertE (FuncExpr a n xs ss) = do
   let ss' = execState (mapM_ convertS ss) id $ []
-      l   = Lambda (map (\(Id _ n) -> n) xs ++ ["world"]) (P ss')
+      l   = Lambda (map (\(Id _ n) -> n) xs ++ [world]) (P ss')
 
   case n of
     Just (Id _ n) -> do
@@ -138,9 +138,10 @@ convertS (IfSingleStmt a (Expression a) (Statement a))
 convertS (SwitchStmt a (Expression a) [CaseClause a])
 -}
 convertS (WhileStmt a e s) = do
-  e' <- convertE e
-  let s' = execState (convertS s) id $ []
-  pushBack $ Assign "world" $ Call (Ref "get_world") [Call (Ref "while") [Lambda [] (P [Return e']), Call (Lambda ["world"] (P $ s' ++ [Return (Call (Ref "merge") [Ref "@", Ref "world"])])) [Ref "world"]]]
+  -- e' <- convertE e
+  -- let s' = execState (convertS s) id $ []
+  -- pushBack $ Assign world $ Call (Ref worldFn) [Call (Ref "while") [Lambda [] (P [Return e']), Call (Lambda [world] (P $ s' ++ [Return (Call (Ref mergeFn) [Ref "@", Ref world])])) [Ref world]]]
+  convertS s
 {-
 convertS (DoWhileStmt a (Statement a) (Expression a))
 convertS (BreakStmt a (Maybe (Id a)))
@@ -154,8 +155,8 @@ convertS (ThrowStmt a (Expression a))
 -}
 convertS (ReturnStmt a (Just e)) = do
   e' <- convertE e
-  pushBack $ Return (Call (Ref "merge") [e', Ref "world"])
-convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref "world")
+  pushBack $ Return (Call (Ref mergeFn) [e', Ref world])
+convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref world)
 {-
 convertS (WithStmt a (Expression a) (Statement a))
 convertS (VarDeclStmt a [VarDecl a])
@@ -171,7 +172,7 @@ parseExpr str = case parse expression "" str of
   Left err   -> error $ show err
 
 testConvertE :: String -> P
-testConvertE e = P $ ss [Return (Call (Ref "merge") [e', Ref "world"])]
+testConvertE e = P $ ss [Return (Call (Ref "merge") [e', Ref world])]
   where (e', ss) = runState (convertE $ parseExpr e) id
 
 testConvert :: String -> P
