@@ -27,14 +27,25 @@ data Context = Context
   , unLocals  :: S.Set String
   }
 
-newDecl :: State Context VarIndex
-newDecl = undefined
+newDecl :: String -> State Context ()
+newDecl decl = do
+  st <- get
+  put $ st { unWorld  = M.insert decl (unIndex st) (unWorld st)
+           , unIndex  = init (unIndex st) ++ [last (unIndex st) + 1]
+           , unLocals = S.insert decl (unLocals st)
+           }
 
-enterBlock :: State Context VarIndex
-enterBlock = undefined
+newBlock :: Context -> Context
+newBlock st =
+  st { unSS     = id
+     , unIndex  = unIndex st ++ [1]
+     , unLocals = S.empty
+     }
 
-exitBlock :: State Context VarIndex
-exitBlock = undefined
+exitBlock :: State Context ()
+exitBlock = do
+  st <- get
+  put $ st { unIndex  = init (unIndex st) ++ [last (unIndex st) + 1] }
 
 idContext :: Context
 idContext = Context id M.empty [1] S.empty
@@ -107,9 +118,19 @@ convertE (CondExpr a cnd t f) = do
   return (Call (Ref "cond") [cnd', Lambda [] (P [Return t']), Lambda [] (P [Return f'])])
 convertE (AssignExpr a op (LVar a' lv) e) = do
   e' <- convertE e
-  if op == OpAssign
-    then pushBack $ Assign lv e'
-    else pushBack $ Assign lv (Call (Ref $ show op) [Ref lv, e'])
+  st <- get
+
+  if S.member lv (unLocals st)
+    then if op == OpAssign
+      then pushBack $ Assign lv e'
+      else pushBack $ Assign lv (Call (Ref $ show op) [Ref lv, e'])
+    else case M.lookup lv (unWorld st) of
+      Just i  -> do
+        pushBack $ Assign world (Call (Ref "set_slot") [Const $ show i, e', Ref worldFn])
+        pushBack $ Assign lv e'
+      Nothing -> do
+        pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref worldFn])
+        pushBack $ Assign lv e'
   return $ Ref lv
 convertE (AssignExpr a op (LDot a' lv fld) rv) = do
   lv' <- convertE lv
@@ -148,7 +169,10 @@ convertE (FuncExpr a n xs ss) = do
       return l
 
 convertS :: Statement a -> State Context ()
-convertS (BlockStmt a ss) = mapM_ convertS ss
+convertS (BlockStmt a ss) = do
+  st <- get
+  let ss' = unSS (execState (mapM_ convertS ss) (newBlock st)) []
+  pushBack $ Assign world (Call (Lambda [] (P (ss' ++ [Return (Ref world)]))) [])
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
 convertS (ExprStmt a e) = do
@@ -181,7 +205,14 @@ convertS (ReturnStmt a (Just e)) = do
 convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref world)
 {-
 convertS (WithStmt a (Expression a) (Statement a))
-convertS (VarDeclStmt a [VarDecl a])
+-}
+convertS (VarDeclStmt a decls) = do
+  forM_ decls $ \(VarDecl a (Id a2 n) e) -> do
+    newDecl n
+    whenJust e $ \e' -> do
+      e'' <- convertE e'
+      pushBack $ Assign n e''
+{-
 convertS (FunctionStmt a (Id a) [Id a] [Statement a])
 -}
 

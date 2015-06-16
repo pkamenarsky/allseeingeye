@@ -148,3 +148,11 @@ jsmap =
   \ "
 
 jssmap = simplify (sToP $ testConvert jsmap)
+
+jsdecl =
+  "var a = 5; \
+  \  { \
+  \    a = 6; \
+  \  } \
+  \ return a; \
+  \ "

@@ -111,7 +111,9 @@ rewriteL (App (App (Var "⤚") x) y)
     where x' = rewriteL x
           y' = rewriteL y
 -}
+-- rewriteL [lam| ↖ρ (⤚ ρ _) ]] = rewriteL ρ
 rewriteL (Var "↖ρ" `App` (Var  "⤚" `App` r `App` _)) = rewriteL r
+-- rewriteL [lam| ↖ω (⤚ _ ω) ]] = rewriteL ω
 rewriteL (Var "↖ω" `App` (Var "⤚" `App` _ `App` w)) = rewriteL w
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
