@@ -17,6 +17,8 @@ import           Language.ECMAScript3.Syntax.Annotations
 
 import           IR
 
+data Context = Context { unSS :: [S] -> [S] }
+
 -- function name, impure arguments (0 is this, -1 is world)
 fns :: M.Map String [Int]
 fns = M.fromList [ ( "push", [0] ) ]
@@ -24,15 +26,15 @@ fns = M.fromList [ ( "push", [0] ) ]
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust = flip (maybe (return ()))
 
-pushBack st = modify (\f -> \cnt -> f [st] ++ cnt)
-pushFront st = modify (\f -> \cnt -> f cnt ++ [st])
+pushBack st = modify (\(Context f) -> Context $ \cnt -> f [st] ++ cnt)
+pushFront st = modify (\(Context f) -> Context $ \cnt -> f cnt ++ [st])
 
 getobj _    (DotRef _ lv _)      = getobj True lv
 getobj True (VarRef _ (Id _ lv)) = Just lv
 getobj False _                   = Nothing
 getobj _     _                   = Nothing
 
-convertE :: Expression a -> State ([S] -> [S]) E
+convertE :: Expression a -> State Context E
 convertE (StringLit a lit) = return $ Const lit
 convertE (RegexpLit a lit glb csi) = return $ Const lit
 convertE (NumLit a lit) = return $ Const $ show lit
@@ -115,7 +117,7 @@ convertE (CallExpr a f xs) = do
 
   return $ Ref "@"
 convertE (FuncExpr a n xs ss) = do
-  let ss' = execState (mapM_ convertS ss) id $ []
+  let ss' = unSS (execState (mapM_ convertS ss) (Context id)) []
       l   = Lambda (map (\(Id _ n) -> n) xs ++ [world]) (P ss')
 
   case n of
@@ -125,7 +127,7 @@ convertE (FuncExpr a n xs ss) = do
     _ ->
       return l
 
-convertS :: Statement a -> State ([S] -> [S]) ()
+convertS :: Statement a -> State Context ()
 convertS (BlockStmt a ss) = mapM_ convertS ss
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
@@ -171,13 +173,9 @@ parseExpr str = case parse expression "" str of
   Right expr -> expr
   Left err   -> error $ show err
 
-testConvertE :: String -> P
-testConvertE e = P $ ss [Return (Call (Ref "merge") [e', Ref world])]
-  where (e', ss) = runState (convertE $ parseExpr e) id
-
 testConvert :: String -> P
-testConvert e = P $ ss []
-  where (_, ss)       = runState (convertS $ BlockStmt a pr) id
+testConvert e = P $ unSS ss []
+  where (_, ss)       = runState (convertS $ BlockStmt a pr) (Context id)
         (Script a pr) = parseProgram e
 
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
