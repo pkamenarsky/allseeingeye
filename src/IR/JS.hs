@@ -17,9 +17,20 @@ import           Language.ECMAScript3.Syntax.Annotations
 
 import           IR
 
+type VarIndex = [Int]
+
+newDecl :: VarIndex -> VarIndex
+newDecl = undefined
+
+enterBlock :: VarIndex -> VarIndex
+enterBlock = undefined
+
+exitBlock :: VarIndex -> VarIndex
+exitBlock = undefined
+
 data Context = Context
   { unSS    :: [S] -> [S]
-  , unWorld :: M.Map [Int] String
+  , unWorld :: M.Map String VarIndex
   }
 
 idContext :: Context
