@@ -8,6 +8,7 @@ import           Data.Generics.Str
 import           Data.Generics.Uniplate.Data
 import           Data.Data
 import qualified Data.Map                                 as M
+import qualified Data.Set                                 as S
 import           Data.Maybe
 
 import           Language.ECMAScript3.Parser
@@ -19,22 +20,24 @@ import           IR
 
 type VarIndex = [Int]
 
-newDecl :: VarIndex -> VarIndex
-newDecl = undefined
-
-enterBlock :: VarIndex -> VarIndex
-enterBlock = undefined
-
-exitBlock :: VarIndex -> VarIndex
-exitBlock = undefined
-
 data Context = Context
-  { unSS    :: [S] -> [S]
-  , unWorld :: M.Map String VarIndex
+  { unSS      :: [S] -> [S]
+  , unWorld   :: M.Map String VarIndex
+  , unIndex   :: VarIndex
+  , unLocals  :: S.Set String
   }
 
+newDecl :: State Context VarIndex
+newDecl = undefined
+
+enterBlock :: State Context VarIndex
+enterBlock = undefined
+
+exitBlock :: State Context VarIndex
+exitBlock = undefined
+
 idContext :: Context
-idContext = Context id M.empty
+idContext = Context id M.empty [1] S.empty
 
 -- function name, impure arguments (0 is this, -1 is world)
 fns :: M.Map String [Int]
@@ -43,8 +46,8 @@ fns = M.fromList [ ( "push", [0] ) ]
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust = flip (maybe (return ()))
 
-pushBack st = modify (\(Context f w) -> Context (\cnt -> f [st] ++ cnt) w)
-pushFront st = modify (\(Context f w) -> Context (\cnt -> f cnt ++ [st]) w)
+pushBack st = modify (\ctx -> ctx { unSS = (\cnt -> unSS ctx [st] ++ cnt) })
+pushFront st = modify (\ctx -> ctx { unSS = (\cnt -> unSS ctx cnt ++ [st]) })
 
 getobj _    (DotRef _ lv _)      = getobj True lv
 getobj True (VarRef _ (Id _ lv)) = Just lv
