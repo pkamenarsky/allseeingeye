@@ -140,7 +140,7 @@ convertS (SwitchStmt a (Expression a) [CaseClause a])
 convertS (WhileStmt a e s) = do
   e' <- convertE e
   let s' = execState (convertS s) id $ []
-  pushBack $ Assign "world" $ Call (Ref "while") [Lambda [] (P [Return e']), Lambda [] (P $ s' ++ [Return (Ref "h")])]
+  pushBack $ Assign "world" $ Call (Ref "get_world") [Call (Ref "while") [Lambda [] (P [Return e']), Call (Lambda ["world"] (P $ s' ++ [Return (Call (Ref "merge") [Ref "@", Ref "world"])])) [Ref "world"]]]
 {-
 convertS (DoWhileStmt a (Statement a) (Expression a))
 convertS (BreakStmt a (Maybe (Id a)))

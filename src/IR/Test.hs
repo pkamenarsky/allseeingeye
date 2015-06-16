@@ -127,7 +127,7 @@ js1 =
 js2 =
   "f = function(x, y) { return x + y; }; \
   \ a = b = ++h; \
-  \ return g(f(a, b)); \
+  \ return f(a, b); \
   \ }"
 
 jss1 = simplify (sToP $ testConvert js1)
