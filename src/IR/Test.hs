@@ -133,3 +133,18 @@ js2 =
 jss1 = simplify (sToP $ testConvert js1)
 jss2 = simplify (sToP $ testConvert js2)
 jss  = jss2 `lmtree1` jss1
+
+jsmap =
+  "map = function(f, array) { \
+  \ i = array.length; \
+  \ n = new Array(); \
+  \ while (i) { \
+  \   n.push_back(f(array[i])); \
+  \   i--; \
+  \ } \
+  \ return n; \
+  \ } \
+  \ return map; \
+  \ "
+
+jssmap = simplify (sToP $ testConvert jsmap)
