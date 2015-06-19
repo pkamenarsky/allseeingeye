@@ -110,8 +110,8 @@ rewriteL (App (App (Var "get") obj) field)
 -- ↖ω (⤚ _ ω) ≈ ω
 -- rewriteL (Var "↖ω" `App` (Var "⤚" `App` _ `App` w)) = rewriteL w
 rewriteL (Var worldFn `App` k `App` x)
-  | null t = Var worldFn `App` rewriteL k `App` rewriteL x
-  | otherwise = x
+  | null t    = Var worldFn `App` rewriteL k `App` rewriteL x
+  | otherwise = rewriteL $ head t
   where t = [ v | Var worldUpFn `App` k' `App` v <- universe x, k == k' ]
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)

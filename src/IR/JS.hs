@@ -133,7 +133,7 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
 
   case M.lookup lv (unWorld st) of
     Just decl -> do
-      pushBack $ Assign world (Call (Ref worldUpFn) [Const $ show decl, e', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Ref $ show decl, e', Ref world])
     Nothing   -> do
       pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref world])
 
@@ -215,7 +215,7 @@ convertS (VarDeclStmt a decls) = do
     decl <- newDecl n
     whenJust e $ \e' -> do
       e'' <- convertE e'
-      pushBack $ Assign world (Call (Ref worldUpFn) [Const $ show decl, e'', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Ref $ show decl, e'', Ref world])
 {-
 convertS (FunctionStmt a (Id a) [Id a] [Statement a])
 -}
