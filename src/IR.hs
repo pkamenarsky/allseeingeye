@@ -87,33 +87,27 @@ normalize (Lam n f) = go (normalize f)
 mergeFn = "⤚"
 resultFn = "↖ρ"
 worldFn = "↖ω"
+worldUpFn = "↪ω"
 objectFn = "↖σ"
 world = "ω"
+
+-- Rewrite rules
+--
+-- ↖ω s (… (↪ω s v ω)) ≈ v
+--
+-- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
+--   return r → ↪ω ρ r (↪ω σ obj ω)
 
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
 rewriteL (App (App (Var "get") obj) field)
--- rewriteL [lam| get *obj *field |]
   | [value] <- [ value | (App (App (App (Var "set") _) field') value) <- universe obj, field == field' ] = value
   | otherwise = (App (App (Var "get") (rewriteL obj)) (rewriteL field))
-{-
-rewriteL (App (App (Var "⤚") (App (Var "↖ρ") x)) y)
-  |  null [ () | Var "ω" <- universe x' ]
-  && null [ () | Var "ω" <- universe y' ] = x'
-  | otherwise = (App (App (Var "⤚") (App (Var "↖ρ") x')) y')
-    where x' = rewriteL x
-          y' = rewriteL y
-rewriteL (App (App (Var "⤚") x) y)
-  |  null [ () | Var "ω" <- universe x' ]
-  && null [ () | Var "ω" <- universe y' ] = x'
-  | otherwise = (App (App (Var "⤚") x') y')
-    where x' = rewriteL x
-          y' = rewriteL y
--}
--- rewriteL [lam| ↖ρ (⤚ ρ _) ]] = rewriteL ρ
+-- ↖ρ (⤚ ρ _) ≈ ρ
+-- ↖ω ρ (… (↪ω ρ v ω)) ≈ v
 rewriteL (Var "↖ρ" `App` (Var  "⤚" `App` r `App` _)) = rewriteL r
--- rewriteL [lam| ↖ω (⤚ _ ω) ]] = rewriteL ω
+-- ↖ω (⤚ _ ω) ≈ ω
 rewriteL (Var "↖ω" `App` (Var "⤚" `App` _ `App` w)) = rewriteL w
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)

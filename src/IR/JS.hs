@@ -126,7 +126,7 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
       else pushBack $ Assign lv (Call (Ref $ show op) [Ref lv, e'])
     else case M.lookup lv (unWorld st) of
       Just i  -> do
-        pushBack $ Assign world (Call (Ref "set_slot") [Const $ show i, e', Ref world])
+        pushBack $ Assign world (Call (Ref worldUpFn) [Const $ show i, e', Ref world])
         pushBack $ Assign lv e'
       Nothing -> do
         pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref world])
@@ -172,6 +172,7 @@ convertS :: Statement a -> State Context ()
 convertS (BlockStmt a ss) = do
   st <- get
   let ss' = unSS (execState (mapM_ convertS ss) (newBlock st)) []
+  exitBlock
   pushBack $ Assign world (Call (Lambda [] (P (ss' ++ [Return (Ref world)]))) [])
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
