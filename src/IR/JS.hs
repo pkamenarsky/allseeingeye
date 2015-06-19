@@ -27,13 +27,14 @@ data Context = Context
   , unLocals  :: S.Set String
   }
 
-newDecl :: String -> State Context ()
+newDecl :: String -> State Context [Int]
 newDecl decl = do
   st <- get
   put $ st { unWorld  = M.insert decl (unIndex st) (unWorld st)
            , unIndex  = init (unIndex st) ++ [last (unIndex st) + 1]
            , unLocals = S.insert decl (unLocals st)
            }
+  return $ unIndex st
 
 newBlock :: Context -> Context
 newBlock st =
@@ -65,13 +66,20 @@ getobj True (VarRef _ (Id _ lv)) = Just lv
 getobj False _                   = Nothing
 getobj _     _                   = Nothing
 
+resolveVar :: String -> State Context E
+resolveVar n = do
+  st <- get
+  case M.lookup n (unWorld st) of
+    Just n' -> return $ Call (Ref worldFn) [Ref (show n'), Ref world]
+    Nothing -> return $ Ref n
+
 convertE :: Expression a -> State Context E
 convertE (StringLit a lit) = return $ Const lit
 convertE (RegexpLit a lit glb csi) = return $ Const lit
 convertE (NumLit a lit) = return $ Const $ show lit
 convertE (IntLit a lit) = return $ Const $ show lit
 convertE (BoolLit a lit) = return $ Const $ show lit
-convertE (NullLit a) = return $ Ref "null"
+convertE (NullLit a) = return $ Const "null"
 {-
 convertE (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convertE $ head es))))
                               (App (Var "newArray") (Var "world"))
@@ -79,9 +87,9 @@ convertE (ArrayLit a es) = App (Lam "array" ((setA (Var "array") 0 (convertE $ h
 convertE (ObjectLit a [(Prop a, Expression a)])
 convertE (ThisRef a)
 -}
-convertE (VarRef a (Id a' ref)) = return $ Ref ref
+convertE (VarRef a (Id a' ref)) = resolveVar ref
 convertE (DotRef _ e (Id _ ref)) = do
-  e' <- convertE e
+  e'   <- convertE e
   return $ Call (Ref "get") [e', Const ref]
 convertE (BracketRef a e i) = do
   e' <- convertE e
@@ -96,11 +104,13 @@ convertE (PrefixExpr a op e) = do
   return $ Call (Ref $ show op) [e']
 convertE (UnaryAssignExpr a op (LVar a' lv))
   | (opname, True)  <- op' = do
-      pushBack $ Assign lv (Call (Ref opname) [Ref lv])
-      return $ Ref lv
+      lv' <- resolveVar lv
+      pushBack $ Assign world (Call (Ref worldUpFn) [lv', (Call (Ref opname) [lv']), Ref world])
+      return $ (Call (Ref worldFn) [lv', Ref world])
   | (opname, False) <- op' = do
-      pushFront $ Assign lv (Call (Ref opname) [Ref lv])
-      return $ Ref lv
+      lv' <- resolveVar lv
+      pushFront $ Assign world (Call (Ref worldUpFn) [lv', (Call (Ref opname) [lv']), Ref world])
+      return $ (Call (Ref worldFn) [lv', Ref world])
   where
     op' = getOp op
     getOp PrefixInc  = ("inc", True )
@@ -117,21 +127,17 @@ convertE (CondExpr a cnd t f) = do
   f'   <- convertE f
   return (Call (Ref "cond") [cnd', Lambda [] (P [Return t']), Lambda [] (P [Return f'])])
 convertE (AssignExpr a op (LVar a' lv) e) = do
-  e' <- convertE e
-  st <- get
+  e'  <- convertE e
+  st  <- get
+  lv' <- resolveVar lv
 
-  if S.member lv (unLocals st)
-    then if op == OpAssign
-      then pushBack $ Assign lv e'
-      else pushBack $ Assign lv (Call (Ref $ show op) [Ref lv, e'])
-    else case M.lookup lv (unWorld st) of
-      Just i  -> do
-        pushBack $ Assign world (Call (Ref worldUpFn) [Const $ show i, e', Ref world])
-        pushBack $ Assign lv e'
-      Nothing -> do
-        pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref world])
-        pushBack $ Assign lv e'
-  return $ Ref lv
+  case M.lookup lv (unWorld st) of
+    Just decl -> do
+      pushBack $ Assign world (Call (Ref worldUpFn) [Const $ show decl, e', Ref world])
+    Nothing   -> do
+      pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref world])
+
+  return $ (Call (Ref worldFn) [lv', Ref world])
 convertE (AssignExpr a op (LDot a' lv fld) rv) = do
   lv' <- convertE lv
   rv' <- convertE rv
@@ -148,15 +154,12 @@ convertE (CallExpr a f xs) = do
   f'  <- convertE f
   xs' <- mapM convertE xs
 
-  pushBack $ Assign "@r" (Call f' (xs' ++ [Ref world]))
+  pushBack $ Assign world (Call f' (xs' ++ [Ref world]))
 
   whenJust (getobj False f) $ \n ->
-    pushBack $ Assign n (Call (Ref objectFn) [Ref "@r"])
+    pushBack $ Assign n (Call (Ref worldFn) [Ref object, Ref world])
 
-  pushBack $ Assign world (Call (Ref worldFn) [Ref "@r"])
-  pushBack $ Assign "@" (Call (Ref resultFn) [Ref "@r"])
-
-  return $ Ref "@"
+  return $ (Call (Ref worldFn) [Ref result, Ref world])
 convertE (FuncExpr a n xs ss) = do
   let ss' = unSS (execState (mapM_ convertS ss) idContext) []
       l   = Lambda (map (\(Id _ n) -> n) xs ++ [world]) (P ss')
@@ -202,17 +205,17 @@ convertS (ThrowStmt a (Expression a))
 -}
 convertS (ReturnStmt a (Just e)) = do
   e' <- convertE e
-  pushBack $ Return (Call (Ref mergeFn) [e', Ref world])
+  pushBack $ Return e'
 convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref world)
 {-
 convertS (WithStmt a (Expression a) (Statement a))
 -}
 convertS (VarDeclStmt a decls) = do
   forM_ decls $ \(VarDecl a (Id a2 n) e) -> do
-    newDecl n
+    decl <- newDecl n
     whenJust e $ \e' -> do
       e'' <- convertE e'
-      pushBack $ Assign n e''
+      pushBack $ Assign world (Call (Ref worldUpFn) [Const $ show decl, e'', Ref world])
 {-
 convertS (FunctionStmt a (Id a) [Id a] [Statement a])
 -}

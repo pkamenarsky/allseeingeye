@@ -85,10 +85,10 @@ normalize (Lam n f) = go (normalize f)
         go f' = Lam n f'
 
 mergeFn = "⤚"
-resultFn = "↖ρ"
 worldFn = "↖ω"
 worldUpFn = "↪ω"
-objectFn = "↖σ"
+result = "ρ"
+object = "σ"
 world = "ω"
 
 -- Rewrite rules
@@ -106,9 +106,13 @@ rewriteL (App (App (Var "get") obj) field)
   | otherwise = (App (App (Var "get") (rewriteL obj)) (rewriteL field))
 -- ↖ρ (⤚ ρ _) ≈ ρ
 -- ↖ω ρ (… (↪ω ρ v ω)) ≈ v
-rewriteL (Var "↖ρ" `App` (Var  "⤚" `App` r `App` _)) = rewriteL r
+-- rewriteL (Var "↖ρ" `App` (Var  "⤚" `App` r `App` _)) = rewriteL r
 -- ↖ω (⤚ _ ω) ≈ ω
-rewriteL (Var "↖ω" `App` (Var "⤚" `App` _ `App` w)) = rewriteL w
+-- rewriteL (Var "↖ω" `App` (Var "⤚" `App` _ `App` w)) = rewriteL w
+rewriteL (Var worldFn `App` k `App` x)
+  | null t = Var worldFn `App` rewriteL k `App` rewriteL x
+  | otherwise = x
+  where t = [ v | Var worldUpFn `App` k' `App` v <- universe x, k == k' ]
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
 
