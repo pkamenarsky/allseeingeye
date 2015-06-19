@@ -91,24 +91,16 @@ result = "ρ"
 object = "σ"
 world = "ω"
 
--- Rewrite rules
---
--- ↖ω s (… (↪ω s v ω)) ≈ v
---
--- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
---   return r → ↪ω ρ r (↪ω σ obj ω)
-
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
 rewriteL (App (App (Var "get") obj) field)
   | [value] <- [ value | (App (App (App (Var "set") _) field') value) <- universe obj, field == field' ] = value
   | otherwise = (App (App (Var "get") (rewriteL obj)) (rewriteL field))
--- ↖ρ (⤚ ρ _) ≈ ρ
--- ↖ω ρ (… (↪ω ρ v ω)) ≈ v
--- rewriteL (Var "↖ρ" `App` (Var  "⤚" `App` r `App` _)) = rewriteL r
--- ↖ω (⤚ _ ω) ≈ ω
--- rewriteL (Var "↖ω" `App` (Var "⤚" `App` _ `App` w)) = rewriteL w
+-- ↖ω s (… (↪ω s v ω)) ≈ v
+--
+-- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
+--   return r → ↪ω ρ r (↪ω σ obj ω)
 rewriteL (Var worldFn `App` k `App` x)
   | null t    = Var worldFn `App` rewriteL k `App` rewriteL x
   | otherwise = rewriteL $ head t
