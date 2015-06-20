@@ -154,6 +154,7 @@ jsdecl =
   \ var b = 666; \
   \  { \
   \    a = new Object(); \
+  \    a.f = function(x) { return x + 7 }; \
   \    { \
   \      b = a.f(5); \
   \    } \

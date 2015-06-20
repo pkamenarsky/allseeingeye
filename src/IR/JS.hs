@@ -7,6 +7,7 @@ import           Control.Monad.State
 import           Data.Generics.Str
 import           Data.Generics.Uniplate.Data
 import           Data.Data
+import           Data.List
 import qualified Data.Map                                 as M
 import qualified Data.Set                                 as S
 import           Data.Maybe
@@ -35,6 +36,9 @@ newDecl decl = do
            , unLocals = S.insert decl (unLocals st)
            }
   return $ unIndex st
+
+showDecl :: [Int] -> String
+showDecl decl = "‹" ++ intercalate " " (map show decl) ++ "›"
 
 newBlock :: Context -> Context
 newBlock st =
@@ -70,7 +74,7 @@ resolveVar :: String -> State Context E
 resolveVar n = do
   st <- get
   case M.lookup n (unWorld st) of
-    Just n' -> return $ Call (Ref worldFn) [Ref (show n'), Ref world]
+    Just n' -> return $ Call (Ref worldFn) [Ref (showDecl n'), Ref world]
     Nothing -> return $ Ref n
 
 convertE :: Expression a -> State Context E
@@ -133,7 +137,7 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
 
   case M.lookup lv (unWorld st) of
     Just decl -> do
-      pushBack $ Assign world (Call (Ref worldUpFn) [Ref $ show decl, e', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Ref $ showDecl decl, e', Ref world])
     Nothing   -> do
       pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref world])
 
@@ -156,8 +160,9 @@ convertE (CallExpr a f xs) = do
 
   pushBack $ Assign world (Call f' (xs' ++ [Ref world]))
 
-  whenJust (getobj False f) $ \n ->
-    pushBack $ Assign n (Call (Ref worldFn) [Ref object, Ref world])
+  whenJust (getobj False f) $ \n -> do
+    n' <- resolveVar n
+    pushBack $ Assign world (Call (Ref worldUpFn) [n', Call (Ref worldFn) [Ref object, Ref world]])
 
   return $ (Call (Ref worldFn) [Ref result, Ref world])
 convertE (FuncExpr a n xs ss) = do
@@ -215,7 +220,7 @@ convertS (VarDeclStmt a decls) = do
     decl <- newDecl n
     whenJust e $ \e' -> do
       e'' <- convertE e'
-      pushBack $ Assign world (Call (Ref worldUpFn) [Ref $ show decl, e'', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Ref $ showDecl decl, e'', Ref world])
 {-
 convertS (FunctionStmt a (Id a) [Id a] [Statement a])
 -}

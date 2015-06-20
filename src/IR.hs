@@ -94,9 +94,9 @@ world = "ω"
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
-rewriteL (App (App (Var "get") obj) field)
-  | [value] <- [ value | (App (App (App (Var "set") _) field') value) <- universe obj, field == field' ] = value
-  | otherwise = (App (App (Var "get") (rewriteL obj)) (rewriteL field))
+rewriteL (Var "get" `App` obj `App` field)
+  | [value] <- [ value | (Var "set" `App` _ `App` field' `App` value) <- universe obj, field == field' ] = rewriteL value
+  | otherwise = (Var "get" `App` rewriteL obj `App` rewriteL field)
 -- ↖ω s (… (↪ω s v ω)) ≈ v
 --
 -- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
