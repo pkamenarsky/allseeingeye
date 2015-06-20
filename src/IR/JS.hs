@@ -150,7 +150,7 @@ convertE (AssignExpr a op (LDot a' lv fld) rv) = do
     Just n -> do
       case M.lookup n (unWorld st) of
         Just n' -> do
-          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref "set") [lv', Const fld, rv']])
+          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref "set") [lv', Const fld, rv'], Ref world])
           return $ (Call (Ref worldFn) [lv', Ref world])
         Nothing -> error "dotref"
       -- pushBack $ Assign n (Call (Ref "set") [lv', Const fld, rv'])
@@ -170,7 +170,7 @@ convertE (CallExpr a f xs) = do
   whenJust (getobj False f) $ \n -> do
     case M.lookup n (unWorld st) of
       Just n' -> do
-        pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref worldFn) [Ref object, Ref world]])
+        pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref worldFn) [Ref object, Ref world], Ref world])
       Nothing -> error "callexpr"
 
   return $ (Call (Ref worldFn) [Ref result, Ref world])
@@ -190,7 +190,7 @@ convertS (BlockStmt a ss) = do
   st <- get
   let ss' = unSS (execState (mapM_ convertS ss) (newBlock st)) []
   exitBlock
-  pushBack $ Assign world (Call (Lambda [] (P (ss' ++ [Return (Ref world)]))) [])
+  pushBack $ Assign world (Call (Lambda [world] (P (ss' ++ [Return (Ref world)]))) [Ref world])
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
 convertS (ExprStmt a e) = convertE e >> return ()
@@ -222,7 +222,7 @@ convertS (ThrowStmt a (Expression a))
 -}
 convertS (ReturnStmt a (Just e)) = do
   e' <- convertE e
-  pushBack $ Assign world (Call (Ref worldUpFn) [Ref result, e'])
+  pushBack $ Assign world (Call (Ref worldUpFn) [Ref result, e', Ref world])
 convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref world)
 {-
 convertS (WithStmt a (Expression a) (Statement a))
