@@ -95,7 +95,7 @@ rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
 rewriteL (Var "get" `App` obj `App` field)
-  | [value] <- [ value | (Var "set" `App` _ `App` field' `App` value) <- universe obj, field == field' ] = rewriteL value
+  | (value:_) <- [ value | (Var "set" `App` _ `App` field' `App` value) <- universe obj, field == field' ] = rewriteL value
   | otherwise = (Var "get" `App` rewriteL obj `App` rewriteL field)
 -- ↖ω s (… (↪ω s v ω)) ≈ v
 --
