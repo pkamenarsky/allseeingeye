@@ -110,6 +110,7 @@ rewriteL (Var "↖ω" `App` k `App` x)
   where go (Var "↪ω" `App` uk `App` uv `App` ux)
            | k == uk   = Just uv
            | otherwise = go ux
+        go (App f x) = go f <|> go x
         go _ = Nothing
 {-
 rewriteL (Var "get" `App` obj `App` field)
@@ -125,6 +126,8 @@ rewriteL (Var "get" `App` k `App` x)
         go _ = Nothing
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
+-- ↖ω ρ (f … ω) ≈ f …
+-- ↖ω σ (f … ω) ≈ f … ?
 
 fixpoint :: Eq a => (a -> a) -> a -> a
 fixpoint f a | a == a' = a

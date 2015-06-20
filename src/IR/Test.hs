@@ -124,9 +124,11 @@ js1 =
   \ return getf(f).add(a, b); \
   \ }"
 
+  -- \ a = b = ++h; \
 js2 =
-  "f = function(x, y) { return x + y; }; \
-  \ a = b = ++h; \
+  "var f = function(x, y) { return x + y; }; \
+  \ var a = 5; \
+  \ var b = 5; \
   \ return f(a, b); \
   \ }"
 
@@ -141,11 +143,19 @@ jsmap =
   \ var n = new Array(); \
   \ while (i) { \
   \   n.push_back(f(array[i])); \
-  \   i--; \
+  \   i = i - 1; \
   \ } \
   \ return n; \
   \ } \
   \ return map; \
+  \ }"
+
+jsmap2 =
+  "{ \
+  \ var i = array.length; \
+  \ var n = new Array(); \
+  \ n.push_back(f(array[i])); \
+  \ return n; \
   \ }"
 
 jssmap = simplify (sToP $ testConvert jsmap)

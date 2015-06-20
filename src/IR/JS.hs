@@ -208,7 +208,7 @@ convertS (WhileStmt a e s) = do
   e' <- convertE e
   let s' = unSS (execState (convertS s) (newBlock st)) []
   exitBlock
-  pushBack $ Assign world (Call (Ref "while") [e', Lambda [] (P $ s' ++ [Return (Ref world)])])
+  pushBack $ Assign world (Call (Ref "while") [e', Lambda [world] (P $ s' ++ [Return (Ref world)])])
 {-
 convertS (DoWhileStmt a (Statement a) (Expression a))
 convertS (BreakStmt a (Maybe (Id a)))
