@@ -126,8 +126,8 @@ rewriteL (Var "get" `App` k `App` x)
         go _ = Nothing
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
--- ↖ω ρ (f … ω) ≈ f …
--- ↖ω σ (f … ω) ≈ f … ?
+-- ↖ω ρ (f … ω)      ≈ f …
+-- ↖ω σ (push a e ω) ≈ push a e
 
 fixpoint :: Eq a => (a -> a) -> a -> a
 fixpoint f a | a == a' = a
