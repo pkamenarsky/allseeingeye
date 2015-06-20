@@ -91,20 +91,38 @@ result = "ρ"
 object = "σ"
 world = "ω"
 
+universeL :: L -> [L]
+universeL e@(Cnst _) = [e]
+universeL e@(Var _) = [e]
+universeL e@(App f x) = [e] ++ universeL x -- ++ universeL f
+universeL e@(Lam _ f) = [e]
+
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
-rewriteL (Var "get" `App` obj `App` field)
-  | (value:_) <- [ value | (Var "set" `App` _ `App` field' `App` value) <- universe obj, field == field' ] = rewriteL value
-  | otherwise = (Var "get" `App` rewriteL obj `App` rewriteL field)
 -- ↖ω s (… (↪ω s v ω)) ≈ v
 --
 -- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
 --   return r → ↪ω ρ r (↪ω σ obj ω)
-rewriteL (Var worldFn `App` k `App` x)
-  | null t    = Var worldFn `App` rewriteL k `App` rewriteL x
-  | otherwise = rewriteL $ head t
-  where t = [ v | Var worldUpFn `App` k' `App` v <- universe x, k == k' ]
+rewriteL (Var "↖ω" `App` k `App` x)
+  | Just x' <- go x = x'
+  | otherwise       = Var worldFn `App` rewriteL k `App` rewriteL x
+  where go (Var "↪ω" `App` uk `App` uv `App` ux)
+           | k == uk   = Just uv
+           | otherwise = go ux
+        go _ = Nothing
+{-
+rewriteL (Var "get" `App` obj `App` field)
+  | (value:_) <- [ value | (Var "set" `App` _ `App` field' `App` value) <- universeL obj, field == field' ] = rewriteL value
+  | otherwise = (Var "get" `App` rewriteL obj `App` rewriteL field)
+-}
+rewriteL (Var "get" `App` k `App` x)
+  | Just x' <- go x = x'
+  | otherwise       = Var worldFn `App` rewriteL k `App` rewriteL x
+  where go (Var "set" `App` uk `App` uv `App` ux)
+           | k == uk   = Just uv
+           | otherwise = go ux
+        go _ = Nothing
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
 
