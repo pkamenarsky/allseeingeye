@@ -94,11 +94,11 @@ convertE (ThisRef a)
 convertE (VarRef a (Id a' ref)) = resolveVar ref
 convertE (DotRef _ e (Id _ ref)) = do
   e'   <- convertE e
-  return $ Call (Ref "get") [e', Const ref]
+  return $ Call (Ref "get") [Const ref, e']
 convertE (BracketRef a e i) = do
   e' <- convertE e
   i' <- convertE i
-  return $ Call (Ref "get_elem") [e', i']
+  return $ Call (Ref "get_elem") [i', e']
 convertE (NewExpr a f xs) = do
   f'  <- convertE f
   xs' <- mapM convertE xs
@@ -150,7 +150,7 @@ convertE (AssignExpr a op (LDot a' lv fld) rv) = do
     Just n -> do
       case M.lookup n (unWorld st) of
         Just n' -> do
-          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref "set") [lv', Const fld, rv'], Ref world])
+          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref "set") [Const fld, rv', lv'], Ref world])
           return $ (Call (Ref worldFn) [lv', Ref world])
         Nothing -> error "dotref"
       -- pushBack $ Assign n (Call (Ref "set") [lv', Const fld, rv'])

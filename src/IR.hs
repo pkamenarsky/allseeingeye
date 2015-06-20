@@ -118,7 +118,7 @@ rewriteL (Var "get" `App` obj `App` field)
 -}
 rewriteL (Var "get" `App` k `App` x)
   | Just x' <- go x = x'
-  | otherwise       = Var worldFn `App` rewriteL k `App` rewriteL x
+  | otherwise       = Var "get" `App` rewriteL k `App` rewriteL x
   where go (Var "set" `App` uk `App` uv `App` ux)
            | k == uk   = Just uv
            | otherwise = go ux
