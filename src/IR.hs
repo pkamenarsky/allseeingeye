@@ -69,14 +69,18 @@ rewriteW (Cnst c)  = Cnst c
 rewriteW (Var "ω") = W M.empty
 rewriteW (Var c)   = Var c
 rewriteW (Extrn c) = Extrn c
--- rewriteW (Var "↪ω" `App` Var k `App` v `App` W w) = W $ M.insert k v w
+rewriteW (Var "↪ω" `App` Var k `App` v `App` W w) = W $ M.insert k v w
+{-
+rewriteW (W w1 `App` W w2) = W $ M.unions [w1, w2]
 rewriteW (Var "↪ω" `App` Var k `App` w) = merge $ rewriteW w
   where merge (W w1 `App` W w2) = W $ M.unions [w1, w2]
         merge (v `App` W w)     = W $ M.insert k v w
         merge w                 = W $ M.singleton k w
+-}
 rewriteW (f `App` x) = rewriteW f `App` rewriteW x
 rewriteW (n `Lam` f) = n `Lam` rewriteW f
-rewriteW (W w)       = W $ M.map rewriteW w
+-- rewriteW (W w)       = W $ M.map rewriteW w
+rewriteW (W w)       = W w
 
 subst :: Name -> L -> L -> L
 subst _ _ e'@(Cnst _) = e'
@@ -127,6 +131,22 @@ showL (App f x@(Lam _ _))            = "" ++ showL f ++ " (" ++ showL x ++ ")"
 showL (App f x)                      = "" ++ showL f ++ " " ++ showL x ++ ""
 showL (Lam n f)                      = "λ" ++ n ++ " → " ++ showL f ++ ""
 
+rewriteInOut :: L -> L
+rewriteInOut (Cnst c)  = (Cnst c)
+rewriteInOut (Var n)   = (Var n)
+rewriteInOut (Extrn n) = (Extrn n)
+rewriteInOut (Var "↖ω" `App` k `App` x)
+  | Just x' <- go x = x'
+  | otherwise       = Var worldFn `App` rewriteL k `App` rewriteL x
+  where go (Var "↪ω" `App` uk `App` uv `App` ux)
+           | k == uk   = Just uv
+           | otherwise = go ux
+        -- go (App f x) = go f <|> go x
+        go _ = Nothing
+rewriteInOut (App f x) = App (rewriteInOut f) (rewriteInOut x)
+rewriteInOut (Lam n f) = Lam n (rewriteInOut f)
+rewriteInOut (W w) = W $ M.map rewriteInOut w
+
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
@@ -146,6 +166,9 @@ rewriteL e@(Var "↖ω" `App` Var "ρ" `App` r@(f `App` x))
 -- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
 --   return r → ↪ω ρ r (↪ω σ obj ω)
 #endif
+rewriteL e@(Var "↖ω" `App` Var k `App` W w)
+  | Just v <- M.lookup k w = v
+  | otherwise              = e
 #if 0
 rewriteL (Var "↖ω" `App` k `App` x)
   | Just x' <- go x = x'
@@ -153,9 +176,17 @@ rewriteL (Var "↖ω" `App` k `App` x)
   where go (Var "↪ω" `App` uk `App` uv `App` ux)
            | k == uk   = Just uv
            | otherwise = go ux
-        go (App f x) = go f <|> go x
+        -- go (App f x) = go f <|> go x
         go _ = Nothing
 #endif
+rewriteL (f `App` (Var "↪ω" `App` k `App` v `App` w))
+  | captured f k = Var "↪ω" `App` k `App` v `App` (f `App` w)
+  | otherwise = rewriteL f `App` (Var "↪ω" `App` rewriteL k `App` rewriteL v `App` rewriteL w)
+  where
+    captured (Var "↪ω" `App` _) _ = False
+    captured (Var "↖ω" `App` _) _ = False
+-- TODO: only if k is not captured by f!
+    captured f k                  = True
 {-
 rewriteL (Var "get" `App` obj `App` field)
   | (value:_) <- [ value | (Var "set" `App` _ `App` field' `App` value) <- universeL obj, field == field' ] = rewriteL value
@@ -170,13 +201,17 @@ rewriteL (Var "get" `App` k `App` x)
            | otherwise = go ux
         go _ = Nothing
 #endif
-rewriteL e@(Var "↖ω" `App` Var k `App` W w)
-  | Just v <- M.lookup k w = v
-  | otherwise              = e
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
 rewriteL (W w) = W $ M.map rewriteL w
 -- ↖ω σ (push a e ω) ≈ push a e
+
+-- Tests
+rule1 = Var "f" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` Var "ω")
+rule1a = Var "f" `App` Var "g" `App` Cnst "const" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` Var "ω")
+rule1b = Var "f" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` (Var "↪ω" `App` Var "k'" `App` Var "v'" `App` Var "ω"))
+
+rule2 = Var "↖ω" `App` Var "a" `App` (Var "↪ω" `App` Var "b" `App` Var "0" `App` (Var "↪ω" `App` Var "a" `App` Var "1" `App` Var "ω"))
 
 fixpoint :: Eq a => (a -> a) -> a -> a
 fixpoint f a | a == a' = a
@@ -184,7 +219,8 @@ fixpoint f a | a == a' = a
   where a' = f a
 
 simplify :: L -> L
-simplify = fixpoint (rewriteL . rewriteW . normalize)
+simplify = fixpoint (rewriteL . rewriteInOut . normalize)
+-- simplify = fixpoint (rewriteL . rewriteW . normalize)
 
 subtree :: L -> L -> Maybe L
 #if 0

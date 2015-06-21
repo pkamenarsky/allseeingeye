@@ -150,11 +150,12 @@ jsmap =
   \ return map; \
   \ }"
 
+  -- \ n.push_back(f(array[i])); \
 jsmap2 =
   "{ \
   \ var i = array.length; \
   \ var n = new Array(); \
-  \ n.push_back(f(array[i])); \
+  \ push_back(n, f(array[i])); \
   \ return n; \
   \ }"
 
