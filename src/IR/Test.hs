@@ -132,10 +132,6 @@ js2 =
   \ return f(a, b); \
   \ }"
 
-jss1 = simplify (sToP $ testConvert js1)
-jss2 = simplify (sToP $ testConvert js2)
-jss  = jss2 `lmtree1` jss1
-
 jsmap =
   "{ \
   \ var map = function(f, array) { \
@@ -166,8 +162,6 @@ jsmap3 =
   \ n.push_back(f(array[i])); \
   \ return n; \
   \ }"
-
-jssmap = simplify (sToP $ testConvert jsmap)
 
 jsdecl =
   " var a = 5; \

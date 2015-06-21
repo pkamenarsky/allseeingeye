@@ -39,10 +39,7 @@ instance Show L where
   --show (App f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
   --show (Lam n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
 
-  show (App f@(Lam _ _) x@(App _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")"
-  show (App f x@(App _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
-  show (App f@(Lam _ _) x)            = "(" ++ show f ++ ") " ++ show x ++ ""
-  show (App f x@(Lam _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
-  show (App f x)                      = "" ++ show f ++ " " ++ show x ++ ""
-  show (Lam n f)                      = "λ" ++ n ++ " → " ++ show f ++ ""
+  show (App f [])                     = show f
+  show (App f x)                      = "(" ++ show f ++ " " ++ intercalate " " (map show x) ++ ")"
+  show (Lam n f)                      = "λ" ++ intercalate " " n ++ " → " ++ show f ++ ""
   show (W w)                          = "⟦" ++ intercalate " : " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ "⟧"
