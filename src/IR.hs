@@ -100,6 +100,15 @@ universeL e@(Lam _ f) = [e]
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
+-- ↖ω ρ (f … ω)      ≈ f …
+-- ↖ω ρ (f … (↪ω …)) ≈ f …
+rewriteL (Var "↖ω" `App` Var "ρ" `App` r@(f `App` x))
+  | Just r' <- go r = r'
+  | otherwise       = Var "↖ω" `App` Var "ρ" `App` rewriteL r
+  where go (f `App` (Var "ω"))          = Just f
+        go (f `App` (Var "↪ω" `App` _)) = Just f
+        go (f `App` x)                  = App f <$> go x
+        go _                            = Nothing
 -- ↖ω s (… (↪ω s v ω)) ≈ v
 --
 -- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
@@ -126,7 +135,6 @@ rewriteL (Var "get" `App` k `App` x)
         go _ = Nothing
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
--- ↖ω ρ (f … ω)      ≈ f …
 -- ↖ω σ (push a e ω) ≈ push a e
 
 fixpoint :: Eq a => (a -> a) -> a -> a
