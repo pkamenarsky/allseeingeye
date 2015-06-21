@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TupleSections, QuasiQuotes, TypeSynonymInstances #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TupleSections, QuasiQuotes, TypeSynonymInstances #-}
 
 module IR where
 
@@ -97,13 +97,28 @@ universeL e@(Var _) = [e]
 universeL e@(App f x) = [e] ++ universeL x -- ++ universeL f
 universeL e@(Lam _ f) = [e]
 
+showL (Cnst c)   = c
+showL (Var n)    = n
+showL (Extrn n)  = "‹" ++ n ++ "›"
+
+--showL (App f x)  = "(" ++ showL f ++ " " ++ showL x ++ ")"
+--showL (Lam n f)  = "(λ" ++ n ++ " → " ++ showL f ++ ")"
+
+showL (App f@(Lam _ _) x@(App _ _))  = "(" ++ showL f ++ ") (" ++ showL x ++ ")"
+showL (App f x@(App _ _))            = "" ++ showL f ++ " (" ++ showL x ++ ")"
+showL (App f@(Lam _ _) x)            = "(" ++ showL f ++ ") " ++ showL x ++ ""
+showL (App f x@(Lam _ _))            = "" ++ showL f ++ " (" ++ showL x ++ ")"
+showL (App f x)                      = "" ++ showL f ++ " " ++ showL x ++ ""
+showL (Lam n f)                      = "λ" ++ n ++ " → " ++ showL f ++ ""
+
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
--- ↖ω ρ (f … ω)      ≈ f …
--- ↖ω ρ (f … (↪ω …)) ≈ f …
-rewriteL (Var "↖ω" `App` Var "ρ" `App` r@(f `App` x))
-  | Just r' <- go r = r'
+-- ↖ω ρ (f … ω)      ≈ f … (WRONG!)
+-- ↖ω ρ (f … (↪ω …)) ≈ f … (WRONG!)
+#if 0
+rewriteL e@(Var "↖ω" `App` Var "ρ" `App` r@(f `App` x))
+  | Just r' <- go r = (\x -> trace ("BEFORE: " ++ showL e ++ "\nAFTER : " ++ showL r' ++ "\n") x) r'
   | otherwise       = Var "↖ω" `App` Var "ρ" `App` rewriteL r
   where go (f `App` (Var "ω"))          = Just f
         go (f `App` (Var "↪ω" `App` _)) = Just f
@@ -113,6 +128,7 @@ rewriteL (Var "↖ω" `App` Var "ρ" `App` r@(f `App` x))
 --
 -- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
 --   return r → ↪ω ρ r (↪ω σ obj ω)
+#endif
 rewriteL (Var "↖ω" `App` k `App` x)
   | Just x' <- go x = x'
   | otherwise       = Var worldFn `App` rewriteL k `App` rewriteL x
