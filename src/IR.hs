@@ -46,11 +46,19 @@ data P = P [S] deriving (Eq, Ord, Data, Typeable)
 data L = Cnst String
        | Var Name
        | Extrn Name
-       | App L L
-       | Lam Name L
+       | App L [L]
+       | Lam [Name] L
        | W (M.Map Name L)
        deriving (Eq, Ord, Data, Typeable)
 
+mergeFn = "⤚"
+worldFn = "↖ω"
+worldUpFn = "↪ω"
+result = "ρ"
+object = "σ"
+world = "ω"
+
+{-
 sToE :: E -> L
 sToE (Const c)     = Cnst c
 sToE (Ref r)       = Var r
@@ -104,13 +112,6 @@ normalize (Lam n f) = go (normalize f)
         go f' = Lam n f'
 normalize e = e
 
-mergeFn = "⤚"
-worldFn = "↖ω"
-worldUpFn = "↪ω"
-result = "ρ"
-object = "σ"
-world = "ω"
-
 universeL :: L -> [L]
 universeL e@(Cnst _) = [e]
 universeL e@(Var _) = [e]
@@ -137,7 +138,7 @@ rewriteInOut (Var n)   = (Var n)
 rewriteInOut (Extrn n) = (Extrn n)
 rewriteInOut (Var "↖ω" `App` k `App` x)
   | Just x' <- go x = x'
-  | otherwise       = Var worldFn `App` rewriteL k `App` rewriteL x
+  | otherwise       = Var worldFn `App` rewriteInOut k `App` rewriteInOut x
   where go (Var "↪ω" `App` uk `App` uv `App` ux)
            | k == uk   = Just uv
            | otherwise = go ux
@@ -180,10 +181,11 @@ rewriteL (Var "↖ω" `App` k `App` x)
         go _ = Nothing
 #endif
 rewriteL (f `App` (Var "↪ω" `App` k `App` v `App` w))
-  | captured f k = Var "↪ω" `App` k `App` v `App` (f `App` w)
+  | captured f k = Var "↪ω" `App` rewriteL k `App` rewriteL v `App` (rewriteL f `App` rewriteL w)
   | otherwise = rewriteL f `App` (Var "↪ω" `App` rewriteL k `App` rewriteL v `App` rewriteL w)
   where
     captured (Var "↪ω" `App` _) _ = False
+    captured (Var "↪ω" `App` _ `App` _) _ = False
     captured (Var "↖ω" `App` _) _ = False
 -- TODO: only if k is not captured by f!
     captured f k                  = True
@@ -208,8 +210,9 @@ rewriteL (W w) = W $ M.map rewriteL w
 
 -- Tests
 rule1 = Var "f" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` Var "ω")
-rule1a = Var "f" `App` Var "g" `App` Cnst "const" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` Var "ω")
+rule1a = Var "f" `App` (Var "g" `App` Cnst "const" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` Var "ω"))
 rule1b = Var "f" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` (Var "↪ω" `App` Var "k'" `App` Var "v'" `App` Var "ω"))
+rule1c = Var "↪ω" `App` Var "k" `App` Var "v" `App` (Var "f" `App` Var "x" `App` (Var "↪ω" `App` Var "k'" `App` Var "v'" `App` (Var "↪ω" `App` Var "k''" `App` Var "v''" `App` Var "ω")))
 
 rule2 = Var "↖ω" `App` Var "a" `App` (Var "↪ω" `App` Var "b" `App` Var "0" `App` (Var "↪ω" `App` Var "a" `App` Var "1" `App` Var "ω"))
 
@@ -278,3 +281,4 @@ lmtree1 l@(Lam n1 f1) r@(Lam n2 f2)
    = Just $ maximumBy (compare `on` tlength) trees
  | otherwise = Nothing
 lmtree1 l r = subtree l r
+-}
