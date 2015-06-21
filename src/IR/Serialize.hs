@@ -8,6 +8,7 @@ import           Control.Monad.ST
 
 import           Data.Aeson
 import qualified Data.HashMap.Lazy              as M
+import qualified Data.Map                       as Map
 import           Data.List
 import           Data.Maybe
 import           Data.STRef
@@ -33,7 +34,7 @@ instance Show P where
 instance Show L where
   show (Cnst c)   = c
   show (Var n)    = n
-  show (Extrn n)  = "‹" ++ n ++ "›"
+  show (Extrn n)  = "⟨" ++ n ++ "⟩"
 
   --show (App f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
   --show (Lam n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
@@ -44,3 +45,4 @@ instance Show L where
   show (App f x@(Lam _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
   show (App f x)                      = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam n f)                      = "λ" ++ n ++ " → " ++ show f ++ ""
+  show (W w)                          = "⟦" ++ intercalate " : " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ "⟧"

@@ -38,7 +38,7 @@ newDecl decl = do
   return $ unIndex st
 
 showDecl :: [Int] -> String
-showDecl decl = "‹" ++ intercalate " " (map show decl) ++ "›"
+showDecl decl = "⟨" ++ intercalate " " (map show decl) ++ "⟩"
 
 newBlock :: Context -> Context
 newBlock st =

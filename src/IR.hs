@@ -48,6 +48,7 @@ data L = Cnst String
        | Extrn Name
        | App L L
        | Lam Name L
+       | W (M.Map Name L)
        deriving (Eq, Ord, Data, Typeable)
 
 sToE :: E -> L
@@ -62,6 +63,20 @@ sToP (P (Decl n e:ps))   = App (Lam n (sToP (P ps))) (sToE e)
 sToP (P (Assign n e:ps)) = App (Lam n (sToP (P ps))) (sToE e)
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
+
+rewriteW :: L -> L
+rewriteW (Cnst c)  = Cnst c
+rewriteW (Var "ω") = W M.empty
+rewriteW (Var c)   = Var c
+rewriteW (Extrn c) = Extrn c
+-- rewriteW (Var "↪ω" `App` Var k `App` v `App` W w) = W $ M.insert k v w
+rewriteW (Var "↪ω" `App` Var k `App` w) = merge $ rewriteW w
+  where merge (W w1 `App` W w2) = W $ M.unions [w1, w2]
+        merge (v `App` W w)     = W $ M.insert k v w
+        merge w                 = W $ M.singleton k w
+rewriteW (f `App` x) = rewriteW f `App` rewriteW x
+rewriteW (n `Lam` f) = n `Lam` rewriteW f
+rewriteW (W w)       = W $ M.map rewriteW w
 
 subst :: Name -> L -> L -> L
 subst _ _ e'@(Cnst _) = e'
@@ -83,6 +98,7 @@ normalize (Lam n f) = go (normalize f)
                        | otherwise = Lam n f'
         -}
         go f' = Lam n f'
+normalize e = e
 
 mergeFn = "⤚"
 worldFn = "↖ω"
@@ -114,6 +130,7 @@ showL (Lam n f)                      = "λ" ++ n ++ " → " ++ showL f ++ ""
 rewriteL :: L -> L
 rewriteL (Cnst c)  = (Cnst c)
 rewriteL (Var n)   = (Var n)
+rewriteL (Extrn n) = (Extrn n)
 -- ↖ω ρ (f … ω)      ≈ f … (WRONG!)
 -- ↖ω ρ (f … (↪ω …)) ≈ f … (WRONG!)
 #if 0
@@ -129,6 +146,7 @@ rewriteL e@(Var "↖ω" `App` Var "ρ" `App` r@(f `App` x))
 -- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
 --   return r → ↪ω ρ r (↪ω σ obj ω)
 #endif
+#if 0
 rewriteL (Var "↖ω" `App` k `App` x)
   | Just x' <- go x = x'
   | otherwise       = Var worldFn `App` rewriteL k `App` rewriteL x
@@ -137,11 +155,13 @@ rewriteL (Var "↖ω" `App` k `App` x)
            | otherwise = go ux
         go (App f x) = go f <|> go x
         go _ = Nothing
+#endif
 {-
 rewriteL (Var "get" `App` obj `App` field)
   | (value:_) <- [ value | (Var "set" `App` _ `App` field' `App` value) <- universeL obj, field == field' ] = rewriteL value
   | otherwise = (Var "get" `App` rewriteL obj `App` rewriteL field)
 -}
+#if 0
 rewriteL (Var "get" `App` k `App` x)
   | Just x' <- go x = x'
   | otherwise       = Var "get" `App` rewriteL k `App` rewriteL x
@@ -149,8 +169,13 @@ rewriteL (Var "get" `App` k `App` x)
            | k == uk   = Just uv
            | otherwise = go ux
         go _ = Nothing
+#endif
+rewriteL e@(Var "↖ω" `App` Var k `App` W w)
+  | Just v <- M.lookup k w = v
+  | otherwise              = e
 rewriteL (App f x) = App (rewriteL f) (rewriteL x)
 rewriteL (Lam n f) = Lam n (rewriteL f)
+rewriteL (W w) = W $ M.map rewriteL w
 -- ↖ω σ (push a e ω) ≈ push a e
 
 fixpoint :: Eq a => (a -> a) -> a -> a
@@ -159,7 +184,7 @@ fixpoint f a | a == a' = a
   where a' = f a
 
 simplify :: L -> L
-simplify = fixpoint (rewriteL . normalize)
+simplify = fixpoint (rewriteL . rewriteW . normalize)
 
 subtree :: L -> L -> Maybe L
 #if 0
