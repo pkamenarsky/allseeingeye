@@ -114,26 +114,19 @@ normalize (Lam n f) = go (normalize f)
         go f' = Lam n f'
 normalize e = e
 
-{-
-universeL :: L -> [L]
-universeL e@(Cnst _) = [e]
-universeL e@(Var _) = [e]
-universeL e@(App f x) = [e] ++ universeL x -- ++ universeL f
-universeL e@(Lam _ f) = [e]
-
 rewriteInOut :: L -> L
 rewriteInOut (Cnst c)  = (Cnst c)
 rewriteInOut (Var n)   = (Var n)
 rewriteInOut (Extrn n) = (Extrn n)
-rewriteInOut (Var "↖ω" `App` k `App` x)
+rewriteInOut (Var "↖ω" `App` [k, x])
   | Just x' <- go x = x'
-  | otherwise       = Var worldFn `App` rewriteInOut k `App` rewriteInOut x
-  where go (Var "↪ω" `App` uk `App` uv `App` ux)
+  | otherwise       = Var "↖ω" `App` [rewriteInOut k, rewriteInOut x]
+  where go (Var "↪ω" `App` [uk, uv, ux])
            | k == uk   = Just uv
            | otherwise = go ux
         -- go (App f x) = go f <|> go x
         go _ = Nothing
-rewriteInOut (App f x) = App (rewriteInOut f) (rewriteInOut x)
+rewriteInOut (App f x) = App (rewriteInOut f) (map rewriteInOut x)
 rewriteInOut (Lam n f) = Lam n (rewriteInOut f)
 rewriteInOut (W w) = W $ M.map rewriteInOut w
 
@@ -156,9 +149,11 @@ rewriteL e@(Var "↖ω" `App` Var "ρ" `App` r@(f `App` x))
 -- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
 --   return r → ↪ω ρ r (↪ω σ obj ω)
 #endif
+#if 0
 rewriteL e@(Var "↖ω" `App` Var k `App` W w)
   | Just v <- M.lookup k w = v
   | otherwise              = e
+#endif
 #if 0
 rewriteL (Var "↖ω" `App` k `App` x)
   | Just x' <- go x = x'
@@ -169,20 +164,27 @@ rewriteL (Var "↖ω" `App` k `App` x)
         -- go (App f x) = go f <|> go x
         go _ = Nothing
 #endif
-rewriteL (f `App` (Var "↪ω" `App` k `App` v `App` w))
-  | captured f k = Var "↪ω" `App` rewriteL k `App` rewriteL v `App` (rewriteL f `App` rewriteL w)
-  | otherwise = rewriteL f `App` (Var "↪ω" `App` rewriteL k `App` rewriteL v `App` rewriteL w)
+rewriteL (f `App` []) = rewriteL f `App` []
+rewriteL (f `App` xs)
+  | Just f' <- go (last xs) = f'
+  | otherwise = rewriteL f `App` map rewriteL xs
   where
+    go (Var "↪ω" `App` [k, v, w])
+       | captured f k = Just $ Var "↪ω" `App` [rewriteL k, rewriteL v, rewriteL f `App` (map rewriteL (init xs) ++ [rewriteL w])]
+       | otherwise    = Just $ Var "↪ω" `App` [rewriteL k, rewriteL v, rewriteL w]
+    go _ = Nothing
     captured (Var "↪ω" `App` _) _ = False
-    captured (Var "↪ω" `App` _ `App` _) _ = False
     captured (Var "↖ω" `App` _) _ = False
--- TODO: only if k is not captured by f!
+    -- TODO: only if k is not captured by f!
     captured f k                  = True
 {-
 rewriteL (Var "get" `App` obj `App` field)
   | (value:_) <- [ value | (Var "set" `App` _ `App` field' `App` value) <- universeL obj, field == field' ] = rewriteL value
   | otherwise = (Var "get" `App` rewriteL obj `App` rewriteL field)
 -}
+rewriteL (Lam n f) = Lam n (rewriteL f)
+rewriteL (W w) = W $ M.map rewriteL w
+-- ↖ω σ (push a e ω) ≈ push a e
 #if 0
 rewriteL (Var "get" `App` k `App` x)
   | Just x' <- go x = x'
@@ -192,18 +194,17 @@ rewriteL (Var "get" `App` k `App` x)
            | otherwise = go ux
         go _ = Nothing
 #endif
-rewriteL (App f x) = App (rewriteL f) (rewriteL x)
-rewriteL (Lam n f) = Lam n (rewriteL f)
-rewriteL (W w) = W $ M.map rewriteL w
--- ↖ω σ (push a e ω) ≈ push a e
 
 -- Tests
-rule1 = Var "f" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` Var "ω")
+rule1 = Var "f" `App` [Var "↪ω" `App` [Var "k", Var "v", Var "ω"]]
+
+{-
 rule1a = Var "f" `App` (Var "g" `App` Cnst "const" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` Var "ω"))
 rule1b = Var "f" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` (Var "↪ω" `App` Var "k'" `App` Var "v'" `App` Var "ω"))
 rule1c = Var "↪ω" `App` Var "k" `App` Var "v" `App` (Var "f" `App` Var "x" `App` (Var "↪ω" `App` Var "k'" `App` Var "v'" `App` (Var "↪ω" `App` Var "k''" `App` Var "v''" `App` Var "ω")))
 
 rule2 = Var "↖ω" `App` Var "a" `App` (Var "↪ω" `App` Var "b" `App` Var "0" `App` (Var "↪ω" `App` Var "a" `App` Var "1" `App` Var "ω"))
+-}
 
 fixpoint :: Eq a => (a -> a) -> a -> a
 fixpoint f a | a == a' = a
@@ -214,6 +215,7 @@ simplify :: L -> L
 simplify = fixpoint (rewriteL . rewriteInOut . normalize)
 -- simplify = fixpoint (rewriteL . rewriteW . normalize)
 
+{-
 subtree :: L -> L -> Maybe L
 #if 0
 subtree (Var "↪ω" `App` Var "ρ" `App` x1) (Var "↪ω" `App` Var "ρ" `App` x2)
