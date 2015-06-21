@@ -165,16 +165,20 @@ rewriteL (Var "↖ω" `App` k `App` x)
         go _ = Nothing
 #endif
 rewriteL (f `App` []) = rewriteL f `App` []
-rewriteL (f `App` xs)
+rewriteL e@(f `App` xs)
   | Just f' <- go (last xs) = f'
   | otherwise = rewriteL f `App` map rewriteL xs
   where
     go (Var "↪ω" `App` [k, v, w])
-       | captured f k = Just $ Var "↪ω" `App` [rewriteL k, rewriteL v, rewriteL f `App` (map rewriteL (init xs) ++ [rewriteL w])]
-       | otherwise    = Just $ Var "↪ω" `App` [rewriteL k, rewriteL v, rewriteL w]
+       | captured f k = -- (\x -> trace ("before: " ++ showL e ++ "\nafter: " ++ fromMaybe "" (showL <$> x)) x) $
+          Just $ Var "↪ω" `App` [rewriteL k, rewriteL v, rewriteL f `App` (map rewriteL (init xs) ++ [rewriteL w])]
+       | otherwise    = Nothing
     go _ = Nothing
+
     captured (Var "↪ω" `App` _) _ = False
     captured (Var "↖ω" `App` _) _ = False
+    captured (Var "↪ω") _ = False
+    -- captured e _ = trace ("cap: " ++ showL e ++ "\n") True
     -- TODO: only if k is not captured by f!
     captured f k                  = True
 {-
@@ -195,13 +199,23 @@ rewriteL (Var "get" `App` k `App` x)
         go _ = Nothing
 #endif
 
+showL (Cnst c)   = c
+showL (Var n)    = n
+showL (Extrn n)  = "⟨" ++ n ++ "⟩"
+
+--showL (App f x)  = "(" ++ showL f ++ " " ++ showL x ++ ")"
+--showL (Lam n f)  = "(λ" ++ n ++ " → " ++ showL f ++ ")"
+
+showL (App f [])                     = showL f
+showL (App f x)                      = "(" ++ showL f ++ " " ++ intercalate " " (map showL x) ++ ")"
+showL (Lam n f)                      = "λ" ++ intercalate " " n ++ " → " ++ showL f ++ ""
+showL (W w)                          = "⟦" ++ intercalate " : " (map (\(k, v) -> k ++ " → " ++ showL v) $ M.toList w) ++ "⟧"
+
 -- Tests
 rule1 = Var "f" `App` [Var "↪ω" `App` [Var "k", Var "v", Var "ω"]]
-
+rule1a = Var "f" `App` [Var "g" `App` [Cnst "const", Var "↪ω" `App` [Var "k", Var "v", Var "ω"]]]
+rule1b = Var "↪ω" `App` [Var "k", Var "v", Var "f" `App` [Var "x", Var "y", Var "↪ω" `App` [Var "k'", Var "v'", Var "↪ω" `App` [Var "k''", Var "v''", Var "ω"]]]]
 {-
-rule1a = Var "f" `App` (Var "g" `App` Cnst "const" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` Var "ω"))
-rule1b = Var "f" `App` (Var "↪ω" `App` Var "k" `App` Var "v" `App` (Var "↪ω" `App` Var "k'" `App` Var "v'" `App` Var "ω"))
-rule1c = Var "↪ω" `App` Var "k" `App` Var "v" `App` (Var "f" `App` Var "x" `App` (Var "↪ω" `App` Var "k'" `App` Var "v'" `App` (Var "↪ω" `App` Var "k''" `App` Var "v''" `App` Var "ω")))
 
 rule2 = Var "↖ω" `App` Var "a" `App` (Var "↪ω" `App` Var "b" `App` Var "0" `App` (Var "↪ω" `App` Var "a" `App` Var "1" `App` Var "ω"))
 -}
