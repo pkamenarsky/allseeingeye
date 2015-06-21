@@ -162,21 +162,23 @@ simplify :: L -> L
 simplify = fixpoint (rewriteL . normalize)
 
 subtree :: L -> L -> Maybe L
+#if 0
+subtree (Var "↪ω" `App` Var "ρ" `App` x1) (Var "↪ω" `App` Var "ρ" `App` x2)
+  = (Var "↪ω" `App` Var "ρ" `App`) <$> subtree x1 x2
+subtree (Var "↪ω" `App` _) (Var "↪ω" `App` _) = Just $ Var world
+#endif
+subtree (Var "↪ω" `App` _) (Var "ω") = Just $ Var world
+subtree (Var "ω") (Var "↪ω" `App` _) = Just $ Var world
 subtree (Cnst c1) (Cnst c2)
   | c1 == c2  = Just $ Cnst c1
   | otherwise = Nothing
 subtree (Var c1) (Var c2)
   | c1 == c2  = Just $ Var c1
   | otherwise = Nothing
-subtree (App f1 xs1) (App f2 xs2)
-  | Just f  <- subtree f1 f2
-  , Just xs <- subtree xs1 xs2 = Just $ App f xs
-  | otherwise = Nothing
+subtree (App f1 xs1) (App f2 xs2) = App <$> subtree f1 f2 <*> subtree xs1 xs2
 subtree (Lam n1 f1) (Lam n2 f2)
-  | n1 == n2
-  , Just f <- subtree f1 f2 = Just $ Lam n1 f
+  | n1 == n2  = Lam n1 <$> subtree f1 f2
   | otherwise = Nothing
-subtree (Var "ω") (Var "↖ω" `App` _) = Just $ Var world
 subtree _ _ = Nothing
 
 tlength = length . universe

@@ -158,6 +158,14 @@ jsmap2 =
   \ return n; \
   \ }"
 
+jsmap3 =
+  "{ \
+  \ var n = new Array(); \
+  \ var i = array.length; \
+  \ n.push_back(f(array[i])); \
+  \ return n; \
+  \ }"
+
 jssmap = simplify (sToP $ testConvert jsmap)
 
 jsdecl =
