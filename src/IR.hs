@@ -164,6 +164,7 @@ rewriteL (Var "↖ω" `App` k `App` x)
         -- go (App f x) = go f <|> go x
         go _ = Nothing
 #endif
+-- f x y (↪ω k v ω) ≈ ↪ω k v (f x y ω) | k not captured by f
 rewriteL (f `App` []) = rewriteL f `App` []
 rewriteL e@(f `App` xs)
   | Just f' <- go (last xs) = f'
@@ -188,7 +189,6 @@ rewriteL (Var "get" `App` obj `App` field)
 -}
 rewriteL (Lam n f) = Lam n (rewriteL f)
 rewriteL (W w) = W $ M.map rewriteL w
--- ↖ω σ (push a e ω) ≈ push a e
 #if 0
 rewriteL (Var "get" `App` k `App` x)
   | Just x' <- go x = x'
@@ -198,6 +198,7 @@ rewriteL (Var "get" `App` k `App` x)
            | otherwise = go ux
         go _ = Nothing
 #endif
+-- ↖ω σ (↪ω k v (↪ω k' v' (f ω))) ≈ ↖ω σ (f ω) | k, k' ≠ σ
 
 showL (Cnst c)   = c
 showL (Var n)    = n
