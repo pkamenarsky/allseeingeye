@@ -164,21 +164,25 @@ rewriteL (Var "↖ω" `App` k `App` x)
         -- go (App f x) = go f <|> go x
         go _ = Nothing
 #endif
+-- IMPORTANT: (↪ω k v (↪ω k' v' ω)) ≈ (↪ω k' v' (↪ω k v ω)) !!!
+-- must try all possible permutations for next rule; better use W (map)
 -- f x y (↪ω k v ω) ≈ ↪ω k v (f x y ω) | k not captured by f
 rewriteL (f `App` []) = rewriteL f `App` []
 rewriteL e@(f `App` xs)
+  -- | trace ("f: " ++ showL f ++ "\n") False = undefined
   | Just f' <- go (last xs) = f'
   | otherwise = rewriteL f `App` map rewriteL xs
   where
     go (Var "↪ω" `App` [k, v, w])
        | captured f k = -- (\x -> trace ("before: " ++ showL e ++ "\nafter: " ++ fromMaybe "" (showL <$> x)) x) $
-          Just $ Var "↪ω" `App` [rewriteL k, rewriteL v, rewriteL f `App` (map rewriteL (init xs) ++ [rewriteL w])]
+         Just $ Var "↪ω" `App` [rewriteL k, rewriteL v, rewriteL f `App` (map rewriteL (init xs) ++ [rewriteL w])]
        | otherwise    = Nothing
     go _ = Nothing
 
-    captured (Var "↪ω" `App` _) _ = False
-    captured (Var "↖ω" `App` _) _ = False
     captured (Var "↪ω") _ = False
+    captured (Var "↖ω") _ = False
+    captured (Var "push_back") _ = False
+    -- captured (Var "↪ω") _ = False
     -- captured e _ = trace ("cap: " ++ showL e ++ "\n") True
     -- TODO: only if k is not captured by f!
     captured f k                  = True
@@ -216,6 +220,7 @@ showL (W w)                          = "⟦" ++ intercalate " : " (map (\(k, v) 
 rule1 = Var "f" `App` [Var "↪ω" `App` [Var "k", Var "v", Var "ω"]]
 rule1a = Var "f" `App` [Var "g" `App` [Cnst "const", Var "↪ω" `App` [Var "k", Var "v", Var "ω"]]]
 rule1b = Var "↪ω" `App` [Var "k", Var "v", Var "f" `App` [Var "x", Var "y", Var "↪ω" `App` [Var "k'", Var "v'", Var "↪ω" `App` [Var "k''", Var "v''", Var "ω"]]]]
+rule1c = Var "↪ω" `App` [Var "k", Var "v", Var "↪ω" `App` [Var "k'", Var "v'", Var "f" `App` [Var "x", Var "y", Var "↪ω" `App` [Var "k''", Var "v''", Var "ω"]]]]
 {-
 
 rule2 = Var "↖ω" `App` Var "a" `App` (Var "↪ω" `App` Var "b" `App` Var "0" `App` (Var "↪ω" `App` Var "a" `App` Var "1" `App` Var "ω"))
