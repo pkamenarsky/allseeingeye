@@ -119,9 +119,10 @@ normalize (Lam n f) = go (normalize f)
 normalize e = e
 
 {-
-(λa → …) b          ≈ let a = b in …
-↖ω k (↪ω k v ω)     ≈ let ω = ↪ω k v ω in ↖ω k ω
-↖ω k (f (↪ω k v ω)) ≈ let ω = ↪ω k v ω in ↖ω k ω | if k not captured by f
+1.  (λa → …) b          ≈ let a = b in …
+2.  f a                 ≈ let x = a in f x
+    ↖ω k (↪ω k v ω)     ≈ let ω = ↪ω k v ω in ↖ω k ω
+aa. ↖ω k (f (↪ω k v ω)) ≈ let ω = ↪ω k v ω in ↖ω k ω | if k not captured by f
 -}
 rewriteLet :: L -> L
 rewriteLet = go (const Nothing)
