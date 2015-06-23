@@ -50,7 +50,7 @@ data L a = Cnst a String
          | Lam a Name (L a)
          deriving (Eq, Ord, Data, Typeable)
 
-data W = W (M.Map Name (L W))
+data W = W { unW :: M.Map Name (L W) }
 
 w = W M.empty
 
@@ -73,6 +73,16 @@ sToP (P (Decl n e:ps))   = App w (Lam w n (sToP (P ps))) (sToE e)
 sToP (P (Assign n e:ps)) = App w (Lam w n (sToP (P ps))) (sToE e)
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
+
+unTag :: L a -> a
+unTag = undefined
+
+tag :: L W -> L W
+tag (Cnst w c)  = Cnst w c
+tag (Var w c) = Var w c
+tag (Extrn w c) = Extrn w c
+tag (App _ e@(App _ (App _ (Var _ "↪ω") (Var _ k)) v) w)
+  = App (W $ M.insert k v $ unW $ unTag w) e w
 
 -- ω            = []
 -- ↪ω k v ω     = [k: v]
