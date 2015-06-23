@@ -117,6 +117,20 @@ normalize (Lam n f) = go (normalize f)
         go f' = Lam n f'
 normalize e = e
 
+rewriteLet :: L -> L
+rewriteLet = go (const Nothing)
+  where go :: (Name -> Maybe L) -> L -> L
+        go ctx (Cnst c)   = Cnst c
+        go ctx (Var n)    = Var n
+        go ctx (Extrn n)  = Extrn n
+        go ctx e@(Var "↖ω" `App` [Var k, Var "ω"])
+          | Just v <- ctx k = v
+          | otherwise       = e
+        go ctx e@(Let "ω" (Var "↪ω" `App` [Var k, v, Var "ω"]) cnt)
+          = go (\k' -> if k == k' then Just (go ctx v) else ctx k') cnt
+        go ctx (f `App` xs) = go ctx f `App` map (go ctx) xs
+        go ctx (ns `Lam` f) = ns `Lam` go ctx f
+
 rewriteInOut :: L -> L
 rewriteInOut (Cnst c)  = (Cnst c)
 rewriteInOut (Var n)   = (Var n)
