@@ -69,10 +69,11 @@ sToE (Lambda ns p) = foldr (Lam w) (sToP p) ns
 
 sToP :: P -> L W
 sToP (P [])              = error "no return"
--- sToP (P (Decl n e:ps))   = App (Lam [n] (sToP (P ps))) [sToE e]
--- sToP (P (Assign n e:ps)) = App (Lam [n] (sToP (P ps))) [sToE e]
+sToP (P (Decl n e:ps))   = App w (Lam w n (sToP (P ps))) (sToE e)
+sToP (P (Assign n e:ps)) = App w (Lam w n (sToP (P ps))) (sToE e)
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
+
 -- ω            = []
 -- ↪ω k v ω     = [k: v]
 -- ↪ω k v e[t]  = t ∪ [k: v]
