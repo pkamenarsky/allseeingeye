@@ -43,14 +43,12 @@ data S = Decl Name E
 
 data P = P [S] deriving (Eq, Ord, Data, Typeable)
 
-data L = Cnst String
-       | Var Name
-       | Extrn Name
-       | App L [L]
-       | Lam [Name] L
-       | W (M.Map Name L)
-       | Let Name L L
-       deriving (Eq, Ord, Data, Typeable)
+data L a = Cnst String a
+         | Var Name a
+         | Extrn Name a
+         | App (L a) (L a) a
+         | Lam Name (L a)
+         deriving (Eq, Ord, Data, Typeable)
 
 mergeFn = "⤚"
 worldFn = "↖ω"
@@ -73,7 +71,16 @@ sToP (P (Decl n e:ps))   = Let n (sToE e) (sToP (P ps))
 sToP (P (Assign n e:ps)) = Let n (sToE e) (sToP (P ps))
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
+-- ω            = []
+-- ↪ω k v ω     = [k: v]
+-- ↪ω k v e[t]  = t ∪ [k: v]
+-- f a[t]       = t             | if f unbound
+-- ↖ω k e[t]    = v             | t ≈ [k: v, …]
 
+-- ↖ω k (f x y (↪ω k v ω))        ≈ v | if k not captured by f
+-- ↖ω σ (↪ω k v (↪ω k' v' (f ω))) ≈ ↖ω σ (f ω) | k, k' ≠ σ
+
+{-
 {-
 rewriteW :: L -> L
 rewriteW (Cnst c)  = Cnst c
@@ -118,11 +125,22 @@ normalize (Lam n f) = go (normalize f)
         go f' = Lam n f'
 normalize e = e
 
+-- 1. (λa → …) b          ≈ let a = b in …
+rewriteLam :: L -> L
+rewriteLam (Cnst c)            = (Cnst c)
+rewriteLam (Var n)             = (Var n)
+rewriteLam (Extrn n)           = (Extrn n)
+rewriteLam (Lam [] f `App` []) = rewriteLam f
+rewriteLam (Lam ns f `App` xs) = Let (last ns) (rewriteLam $ last xs)
+                                     (rewriteLam (Lam (init ns) f `App` (init xs)))
+rewriteLam (Lam ns f)          = Lam ns (rewriteLam f)
+rewriteLam (f `App` xs)        = rewriteLam f `App` map rewriteLam xs
+rewriteLam (Let k v cnt)       = Let k (rewriteLam v) (rewriteLam cnt)
+
 {-
-1.  (λa → …) b          ≈ let a = b in …
 2.  f a                 ≈ let x = a in f x
     ↖ω k (↪ω k v ω)     ≈ let ω = ↪ω k v ω in ↖ω k ω
-aa. ↖ω k (f (↪ω k v ω)) ≈ let ω = ↪ω k v ω in ↖ω k ω | if k not captured by f
+2a. ↖ω k (f (↪ω k v ω)) ≈ let ω = ↪ω k v ω in ↖ω k ω | if k not captured by f
 -}
 rewriteLet :: L -> L
 rewriteLet = go (const Nothing)
@@ -270,7 +288,6 @@ simplify :: L -> L
 simplify = fixpoint (rewriteL . rewriteInOut . normalize)
 -- simplify = fixpoint (rewriteL . rewriteW . normalize)
 
-{-
 subtree :: L -> L -> Maybe L
 #if 0
 subtree (Var "↪ω" `App` Var "ρ" `App` x1) (Var "↪ω" `App` Var "ρ" `App` x2)
