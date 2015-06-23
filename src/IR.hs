@@ -98,8 +98,9 @@ subst :: Name -> L -> L -> L
 subst _ _ e'@(Cnst _) = e'
 subst n e e'@(Var n') | n == n'   = e
                       | otherwise = e'
-subst n e e'@(App f x)  = App (subst n e f) (map (subst n e) x)
-subst n e e'@(Lam n' f) = Lam n' (subst n e f)
+subst n e e'@(App f x)   = App (subst n e f) (map (subst n e) x)
+-- subst n e e'@(Let k v x) = Let k (subst n e v) x
+subst n e e'@(Lam n' f)  = Lam n' (subst n e f)
 
 normalize :: L -> L
 normalize (Cnst c)  = (Cnst c)
@@ -117,19 +118,26 @@ normalize (Lam n f) = go (normalize f)
         go f' = Lam n f'
 normalize e = e
 
+{-
+(λa → …) b          ≈ let a = b in …
+↖ω k (↪ω k v ω)     ≈ let ω = ↪ω k v ω in ↖ω k ω
+↖ω k (f (↪ω k v ω)) ≈ let ω = ↪ω k v ω in ↖ω k ω | if k not captured by f
+-}
 rewriteLet :: L -> L
 rewriteLet = go (const Nothing)
   where go :: (Name -> Maybe L) -> L -> L
         go ctx (Cnst c)   = Cnst c
-        go ctx (Var "ω")  = undefined
+        -- go ctx (Var "ω")  = undefined
         go ctx (Var n)    = Var n
         go ctx (Extrn n)  = Extrn n
         go ctx e@(Var "↖ω" `App` [Var k, Var "ω"])
           | Just v <- ctx k = v
           | otherwise       = e
         go ctx (Let "ω" (Var "↪ω" `App` [Var k, v, Var "ω"]) cnt)
-          = go (\k' -> if k == k' then Just (go ctx v) else ctx k') cnt
-        go ctx (Let k v cnt) = ([k] `Lam` go ctx cnt) `App` [go ctx v]
+          = go (\k' -> if k == k' then Just (go ctx v) else ctx k') (subst "ω" (Var "↪ω" `App` [Var k, go ctx v, Var "ω"]) cnt)
+        -- go ctx (Let "ω" v (Var "ω")) = Var "W"
+        -- go ctx (Let k v cnt) = ([k] `Lam` go ctx cnt) `App` [go ctx v]
+        go ctx (Let k v cnt) = Let k (go ctx v) (go ctx cnt)
         go ctx (f `App` xs) = go ctx f `App` map (go ctx) xs
         go ctx (ns `Lam` f) = ns `Lam` go ctx f
 
