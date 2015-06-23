@@ -96,7 +96,18 @@ tag (App _ f x) = App (W dw) (tag f) (tag x)
   where dw = (unW $ unTag $ tag x) `M.difference` (unW $ unTag $ tag f)
 tag (Lam w n f) = Lam w n (tag f)
 
+replace :: L W -> L W
+replace (Cnst w c)  = Cnst w c
+replace (Var w c) = Var w c
+replace (Extrn w c) = Extrn w c
+replace (App w1 (App w2 (Var w3 "↖ω") (Var w4 k)) w)
+  | Just v <- M.lookup k (unW $ unTag w) = v
+  | otherwise = App w1 (App w2 (Var w3 "↖ω") (Var w4 k)) (replace w)
+replace (App w f x) = App w (replace f) (replace x)
+replace (Lam w n f) = Lam w n (replace f)
+
 rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "ω")
+rule2 = App w (App w (App w (Var w "↪ω") (Var w "k'")) (Cnst w "v'")) rule1
 
 -- ω            = []
 -- ↪ω k v ω     = [k: v]
@@ -107,7 +118,6 @@ rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "�
 -- ↖ω k (f x y (↪ω k v ω))        ≈ v | if k not captured by f
 -- ↖ω σ (↪ω k v (↪ω k' v' (f ω))) ≈ ↖ω σ (f ω) | k, k' ≠ σ
 
-{-
 {-
 rewriteW :: L -> L
 rewriteW (Cnst c)  = Cnst c
@@ -128,30 +138,30 @@ rewriteW (n `Lam` f) = n `Lam` rewriteW f
 rewriteW (W w)       = W w
 -}
 
-subst :: Name -> L -> L -> L
-subst _ _ e'@(Cnst _) = e'
-subst n e e'@(Var n') | n == n'   = e
-                      | otherwise = e'
-subst n e e'@(App f x)   = App (subst n e f) (map (subst n e) x)
+subst :: Name -> L a -> L a -> L a
+subst _ _ e'@(Cnst _ _) = e'
+subst n e e'@(Var _ n') | n == n'   = e
+                        | otherwise = e'
+subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 -- subst n e e'@(Let k v x) = Let k (subst n e v) x
-subst n e e'@(Lam n' f)  = Lam n' (subst n e f)
+subst n e e'@(Lam w n' f)  = Lam w n' (subst n e f)
 
-normalize :: L -> L
-normalize (Cnst c)  = (Cnst c)
-normalize (Var n)   = (Var n)
-normalize (App f x) = go (normalize f) (map normalize x)
-  where go (Lam n e) x' | length n == length x' = normalize $ foldr (uncurry subst) e (zip n x')
-                        | otherwise             = error "curried"
-        go f' x'        = App f' x'
-normalize (Lam n f) = go (normalize f)
+normalize :: L a -> L a
+normalize (Cnst w c)  = (Cnst w c)
+normalize (Var w n)   = (Var w n)
+normalize (App w f x) = go (normalize f) (normalize x)
+  where go (Lam _ n e) x' = normalize $ subst n x' e
+        go f' x'        = App w f' x'
+normalize (Lam w n f) = go (normalize f)
   where
         {-
         go f'@(Var n') | n == n'   = Var n
                        | otherwise = Lam n f'
         -}
-        go f' = Lam n f'
+        go f' = Lam w n f'
 normalize e = e
 
+{-
 -- 1. (λa → …) b          ≈ let a = b in …
 rewriteLam :: L -> L
 rewriteLam (Cnst c)            = (Cnst c)
