@@ -49,6 +49,7 @@ data L = Cnst String
        | App L [L]
        | Lam [Name] L
        | W (M.Map Name L)
+       | Let Name L L
        deriving (Eq, Ord, Data, Typeable)
 
 mergeFn = "⤚"
@@ -66,8 +67,10 @@ sToE (Lambda ns p) = Lam ns (sToP p)
 
 sToP :: P -> L
 sToP (P [])              = error "no return"
-sToP (P (Decl n e:ps))   = App (Lam [n] (sToP (P ps))) [sToE e]
-sToP (P (Assign n e:ps)) = App (Lam [n] (sToP (P ps))) [sToE e]
+-- sToP (P (Decl n e:ps))   = App (Lam [n] (sToP (P ps))) [sToE e]
+-- sToP (P (Assign n e:ps)) = App (Lam [n] (sToP (P ps))) [sToE e]
+sToP (P (Decl n e:ps))   = Let n (sToE e) (sToP (P ps))
+sToP (P (Assign n e:ps)) = Let n (sToE e) (sToP (P ps))
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 
@@ -148,6 +151,8 @@ rewriteL e@(Var "↖ω" `App` Var "ρ" `App` r@(f `App` x))
 --
 -- r = f(a) → (r, a, ω) = f(a, ω) → ω = f(a, ω)
 --   return r → ↪ω ρ r (↪ω σ obj ω)
+--
+-- let ω = ↪ω k v ω in let ω = ↪ω k' v' ω in f (↖ω k ω) ≈ f v
 #endif
 #if 0
 rewriteL e@(Var "↖ω" `App` Var k `App` W w)
@@ -167,6 +172,8 @@ rewriteL (Var "↖ω" `App` k `App` x)
 -- IMPORTANT: (↪ω k v (↪ω k' v' ω)) ≈ (↪ω k' v' (↪ω k v ω)) !!!
 -- must try all possible permutations for next rule; better use W (map)
 -- f x y (↪ω k v ω) ≈ ↪ω k v (f x y ω) | k not captured by f
+--
+-- let ω = ↪ω k v ω in f x y ω
 rewriteL (f `App` []) = rewriteL f `App` []
 rewriteL e@(f `App` xs)
   -- | trace ("f: " ++ showL f ++ "\n") False = undefined
@@ -203,6 +210,8 @@ rewriteL (Var "get" `App` k `App` x)
         go _ = Nothing
 #endif
 -- ↖ω σ (↪ω k v (↪ω k' v' (f ω))) ≈ ↖ω σ (f ω) | k, k' ≠ σ
+--
+-- let ω = ↪ω k' v' (f ω) in let ω = ↪ω k v ω in ↖ω σ ω ≈ ↖ω σ (f ω)
 
 showL (Cnst c)   = c
 showL (Var n)    = n
