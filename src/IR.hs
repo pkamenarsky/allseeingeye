@@ -85,8 +85,8 @@ tag :: L W -> L W
 tag (Cnst w c)  = Cnst w c
 tag (Var w c) = Var w c
 tag (Extrn w c) = Extrn w c
-tag (App _ e@(App _ (App _ (Var _ "↪ω") (Var _ k)) v) w)
-  = App (W $ M.insert k v $ unW $ unTag $ tag w) (tag e) (tag w)
+tag (App w f@(App _ (App _ (Var _ "↪ω") (Var _ k)) v) x)
+  = App (W $ unW w `M.union` (M.insert k v $ unW $ unTag $ tag x)) (tag f) (tag x)
 
 tag (App _ f@(Var _ _) x)   = App (unTag $ tag x) f (tag x) -- f is unbound
 tag (App _ f@(Cnst _ _) x)  = App (unTag $ tag x) f (tag x) -- f is unbound
