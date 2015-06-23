@@ -107,7 +107,7 @@ replace (App w f x) = App w (replace f) (replace x)
 replace (Lam w n f) = Lam w n (replace f)
 
 rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "ω")
-rule2 = App w (App w (App w (Var w "↪ω") (Var w "k'")) (Cnst w "v'")) rule1
+rule2 = App w (Var w "f") ((App w (App w (App w (Var w "↪ω") (Var w "k'")) (Cnst w "v'"))) rule1)
 
 -- ω            = []
 -- ↪ω k v ω     = [k: v]

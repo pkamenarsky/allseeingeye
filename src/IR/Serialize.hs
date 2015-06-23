@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
 
 module IR.Serialize where
 
@@ -32,21 +32,25 @@ instance Show P where
   show (P ss) = "{\n" ++ intercalate "\n" (map show ss) ++ "\n}"
 
 instance Show W where
+#if 1
   show (W w) = "⟦" ++ intercalate ", " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ "⟧"
+#else
+  show (W w) = "(" ++ intercalate " " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ ")"
+#endif
 
 instance Show a => Show (L a) where
   show (Cnst a c)   = c
   show (Var a n)    = n
   show (Extrn a n)  = "⟨" ++ n ++ "⟩"
 
+#if 0
   show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ ")" ++ show a
   show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")" ++ show a
-
-  {-
-  show (App a f@(Lam _ _ _) x@(App _ _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")" ++ show a
-  show (App a f x@(App _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"     ++ show a
-  show (App a f@(Lam _ _ _) x)            = "(" ++ show f ++ ") " ++ show x ++ ""     ++ show a
-  show (App a f x@(Lam _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"     ++ show a
-  show (App a f x)                      = "" ++ show f ++ " " ++ show x ++ ""         ++ show a
-  show (Lam a n f)                      = "λ" ++ n ++ " → " ++ show f ++ ""           ++ show a
-  -}
+#else
+  show (App a f@(Lam _ _ _) x@(App _ _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")"
+  show (App a f x@(App _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App a f@(Lam _ _ _) x)            = "(" ++ show f ++ ") " ++ show x ++ ""
+  show (App a f x@(Lam _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App a f x)                      = "" ++ show f ++ " " ++ show x ++ ""
+  show (Lam a n f)                      = "λ" ++ n ++ " → " ++ show f ++ ""
+#endif
