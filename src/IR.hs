@@ -83,6 +83,11 @@ tag (Var w c) = Var w c
 tag (Extrn w c) = Extrn w c
 tag (App _ e@(App _ (App _ (Var _ "↪ω") (Var _ k)) v) w)
   = App (W $ M.insert k v $ unW $ unTag w) e w
+tag (App _ f@(Var _ _) x) = App (unTag $ tag x) f (tag x) -- f is unbound
+tag (App _ lam@(Lam _ n f) x) = App (W dw) (tag x) (tag x)
+  where dw = (unW $ unTag $ tag x) `M.difference` (unW $ unTag $ tag f)
+tag (Lam w n f) = Lam w n (tag f)
+
 
 -- ω            = []
 -- ↪ω k v ω     = [k: v]
