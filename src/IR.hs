@@ -121,7 +121,7 @@ rewriteLet :: L -> L
 rewriteLet = go (const Nothing)
   where go :: (Name -> Maybe L) -> L -> L
         go ctx (Cnst c)   = Cnst c
-        go ctx (Var "ω")  = Let "ω" (Var "↪ω" `App` [Var "ρ", Var "x", Var "ω"]) (Var "ω")
+        go ctx (Var "ω")  = undefined
         go ctx (Var n)    = Var n
         go ctx (Extrn n)  = Extrn n
         go ctx e@(Var "↖ω" `App` [Var k, Var "ω"])
