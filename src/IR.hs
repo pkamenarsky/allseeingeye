@@ -121,12 +121,13 @@ rewriteLet :: L -> L
 rewriteLet = go (const Nothing)
   where go :: (Name -> Maybe L) -> L -> L
         go ctx (Cnst c)   = Cnst c
+        go ctx (Var "ω")  = Let "ω" (Var "↪ω" `App` [Var "ρ", Var "x", Var "ω"]) (Var "ω")
         go ctx (Var n)    = Var n
         go ctx (Extrn n)  = Extrn n
         go ctx e@(Var "↖ω" `App` [Var k, Var "ω"])
           | Just v <- ctx k = v
           | otherwise       = e
-        go ctx e@(Let "ω" (Var "↪ω" `App` [Var k, v, Var "ω"]) cnt)
+        go ctx (Let "ω" (Var "↪ω" `App` [Var k, v, Var "ω"]) cnt)
           = go (\k' -> if k == k' then Just (go ctx v) else ctx k') cnt
         go ctx (Let k v cnt) = ([k] `Lam` go ctx cnt) `App` [go ctx v]
         go ctx (f `App` xs) = go ctx f `App` map (go ctx) xs

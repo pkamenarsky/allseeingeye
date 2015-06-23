@@ -41,6 +41,6 @@ instance Show L where
 
   show (App f [])                     = show f
   show (App f x)                      = "(" ++ show f ++ " " ++ intercalate " " (map show x) ++ ")"
-  show (Lam n f)                      = "λ" ++ intercalate " " n ++ " → " ++ show f ++ ""
+  show (Lam n f)                      = "(λ" ++ intercalate " " n ++ " → " ++ show f ++ ")"
   show (W w)                          = "⟦" ++ intercalate " : " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ "⟧"
   show (Let n v e)                    = "(let " ++ n ++ " = " ++ show v ++ " in " ++ show e ++ ")"

@@ -151,7 +151,7 @@ jsmap2 =
   "{ \
   \ var i = array.length; \
   \ var n = new Array(); \
-  \ push_back(n, f(array[i])); \
+  \ n.push_back(f(array[i])); \
   \ return n; \
   \ }"
 
