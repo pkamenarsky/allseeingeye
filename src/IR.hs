@@ -128,6 +128,7 @@ rewriteLet = go (const Nothing)
           | otherwise       = e
         go ctx e@(Let "ω" (Var "↪ω" `App` [Var k, v, Var "ω"]) cnt)
           = go (\k' -> if k == k' then Just (go ctx v) else ctx k') cnt
+        go ctx (Let k v cnt) = ([k] `Lam` go ctx cnt) `App` [go ctx v]
         go ctx (f `App` xs) = go ctx f `App` map (go ctx) xs
         go ctx (ns `Lam` f) = ns `Lam` go ctx f
 
@@ -238,6 +239,7 @@ showL (App f [])                     = showL f
 showL (App f x)                      = "(" ++ showL f ++ " " ++ intercalate " " (map showL x) ++ ")"
 showL (Lam n f)                      = "λ" ++ intercalate " " n ++ " → " ++ showL f ++ ""
 showL (W w)                          = "⟦" ++ intercalate " : " (map (\(k, v) -> k ++ " → " ++ showL v) $ M.toList w) ++ "⟧"
+showL (Let n v e)                    = "(let " ++ n ++ " = " ++ showL v ++ " in " ++ showL e ++ ")"
 
 -- Tests
 rule1 = Var "f" `App` [Var "↪ω" `App` [Var "k", Var "v", Var "ω"]]
