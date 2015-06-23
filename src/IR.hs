@@ -43,12 +43,16 @@ data S = Decl Name E
 
 data P = P [S] deriving (Eq, Ord, Data, Typeable)
 
-data L a = Cnst String a
-         | Var Name a
-         | Extrn Name a
-         | App (L a) (L a) a
-         | Lam Name (L a)
+data L a = Cnst a String
+         | Var a Name
+         | Extrn a Name
+         | App a (L a) (L a)
+         | Lam a Name (L a)
          deriving (Eq, Ord, Data, Typeable)
+
+data W = W (M.Map Name (L W))
+
+w = W M.empty
 
 mergeFn = "⤚"
 worldFn = "↖ω"
@@ -57,18 +61,16 @@ result = "ρ"
 object = "σ"
 world = "ω"
 
-sToE :: E -> L
-sToE (Const c)     = Cnst c
-sToE (Ref r)       = Var r
-sToE (Call f xs)   = App (sToE f) (map sToE xs)
-sToE (Lambda ns p) = Lam ns (sToP p)
+sToE :: E -> L W
+sToE (Const c)     = Cnst w c
+sToE (Ref r)       = Var w r
+sToE (Call f xs)   = foldl (App w) (sToE f) (map sToE xs)
+sToE (Lambda ns p) = foldr (Lam w) (sToP p) ns
 
-sToP :: P -> L
+sToP :: P -> L W
 sToP (P [])              = error "no return"
 -- sToP (P (Decl n e:ps))   = App (Lam [n] (sToP (P ps))) [sToE e]
 -- sToP (P (Assign n e:ps)) = App (Lam [n] (sToP (P ps))) [sToE e]
-sToP (P (Decl n e:ps))   = Let n (sToE e) (sToP (P ps))
-sToP (P (Assign n e:ps)) = Let n (sToE e) (sToP (P ps))
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 -- ω            = []

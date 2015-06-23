@@ -31,16 +31,18 @@ instance Show S where
 instance Show P where
   show (P ss) = "{\n" ++ intercalate "\n" (map show ss) ++ "\n}"
 
-instance Show L where
-  show (Cnst c)   = c
-  show (Var n)    = n
-  show (Extrn n)  = "⟨" ++ n ++ "⟩"
+instance Show (L a) where
+  show (Cnst a c)   = c
+  show (Var a n)    = n
+  show (Extrn a n)  = "⟨" ++ n ++ "⟩"
 
   --show (App f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
   --show (Lam n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
 
-  show (App f [])                     = show f
-  show (App f x)                      = "(" ++ show f ++ " " ++ intercalate " " (map show x) ++ ")"
-  show (Lam n f)                      = "(λ" ++ intercalate " " n ++ " → " ++ show f ++ ")"
-  show (W w)                          = "⟦" ++ intercalate " : " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ "⟧"
-  show (Let n v e)                    = "(let " ++ n ++ " = " ++ show v ++ " in " ++ show e ++ ")"
+  show (App a f@(Lam _ _ _) x@(App _ _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")"
+  show (App a f x@(App _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App a f@(Lam _ _ _) x)            = "(" ++ show f ++ ") " ++ show x ++ ""
+  show (App a f x@(Lam _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App a f x)                      = "" ++ show f ++ " " ++ show x ++ ""
+  show (Lam a n f)                      = "λ" ++ n ++ " → " ++ show f ++ ""
+  -- show (W w)                          = "⟦" ++ intercalate " : " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ "⟧"
