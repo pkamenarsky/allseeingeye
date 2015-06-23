@@ -75,19 +75,28 @@ sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 
 unTag :: L a -> a
-unTag = undefined
+unTag (Cnst w _)  = w
+unTag (Var w _)   = w
+unTag (Extrn w _) = w
+unTag (App w _ _) = w
+unTag (Lam w _ _) = w
 
 tag :: L W -> L W
 tag (Cnst w c)  = Cnst w c
 tag (Var w c) = Var w c
 tag (Extrn w c) = Extrn w c
 tag (App _ e@(App _ (App _ (Var _ "↪ω") (Var _ k)) v) w)
-  = App (W $ M.insert k v $ unW $ unTag w) e w
-tag (App _ f@(Var _ _) x) = App (unTag $ tag x) f (tag x) -- f is unbound
-tag (App _ lam@(Lam _ n f) x) = App (W dw) (tag x) (tag x)
+  = App (W $ M.insert k v $ unW $ unTag $ tag w) (tag e) (tag w)
+
+tag (App _ f@(Var _ _) x)   = App (unTag $ tag x) f (tag x) -- f is unbound
+tag (App _ f@(Cnst _ _) x)  = App (unTag $ tag x) f (tag x) -- f is unbound
+tag (App _ f@(Extrn _ _) x) = App (unTag $ tag x) f (tag x) -- f is unbound
+
+tag (App _ f x) = App (W dw) (tag f) (tag x)
   where dw = (unW $ unTag $ tag x) `M.difference` (unW $ unTag $ tag f)
 tag (Lam w n f) = Lam w n (tag f)
 
+rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "ω")
 
 -- ω            = []
 -- ↪ω k v ω     = [k: v]
