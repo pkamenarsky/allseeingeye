@@ -132,6 +132,17 @@ js2 =
   \ return f(a, b); \
   \ }"
 
+js3 =
+  " f = function(x, y) { return x + y; }; \
+  \ getf = function(f_add) { o = new Object(); o.add = f_add; return o } \
+  \ console.log('log1'); \
+  \ a = h; \
+  \ b = h; \
+  \ a++; \
+  \ b++; \
+  \ return getf(f).add(a, b); \
+  \ }"
+
 jsmap =
   "{ \
   \ var map = function(f, array) { \

@@ -85,7 +85,7 @@ tag :: L W -> L W
 tag (Cnst w c)  = Cnst w c
 tag (Var w c) = Var w c
 tag (Extrn w c) = Extrn w c
-tag (App w f@(App _ (App _ (Var _ "↪ω") (Var _ k)) v) x)
+tag (App w f@(App _ (App _ (Var _ "↪ω") (Cnst _ k)) v) x)
   = App (W $ unW w `M.union` (M.insert k v $ unW $ unTag $ tag x)) (tag f) (tag x)
 
 tag (App _ f@(Var _ _) x)   = App (unTag $ tag x) f (tag x) -- f is unbound
@@ -100,9 +100,9 @@ filltag :: L W -> L W
 filltag (Cnst w c)  = Cnst w c
 filltag (Var w c) = Var w c
 filltag (Extrn w c) = Extrn w c
-filltag (App w1 (App w2 (Var w3 "↖ω") (Var w4 k)) w)
+filltag (App w1 (App w2 (Var w3 "↖ω") (Cnst w4 k)) w)
   | Just v <- M.lookup k (unW $ unTag w) = filltag v
-  | otherwise = App w1 (App w2 (Var w3 "↖ω") (Var w4 k)) (filltag w)
+  | otherwise = App w1 (App w2 (Var w3 "↖ω") (Cnst w4 k)) (filltag w)
 filltag (App w f x) = App w (filltag f) (filltag x)
 filltag (Lam w n f) = Lam w n (filltag f)
 
@@ -115,9 +115,9 @@ removetag :: L W -> L W
 removetag (Cnst w c)  = Cnst w c
 removetag (Var w c) = Var w c
 removetag (Extrn w c) = Extrn w c
-removetag (App w f@(App w2 (App w3 (Var w4 "↪ω") (Var w5 k)) v) x)
+removetag (App w f@(App w2 (App w3 (Var w4 "↪ω") (Cnst w5 k)) v) x)
   | k /= "ρ" && k /= "σ" = removetag x
-  | otherwise = App w (App w2 (App w3 (Var w4 "↪ω") (Var w5 k)) (removetag v)) (removetag x)
+  | otherwise = App w (App w2 (App w3 (Var w4 "↪ω") (Cnst w5 k)) (removetag v)) (removetag x)
 removetag (App w f x) = App w (removetag f) (removetag x)
 removetag (Lam w n f) = Lam w n (removetag f)
 
@@ -127,7 +127,8 @@ fixpoint f a | a == a' = a
   where a' = f a
 
 simplify :: L W -> L W
-simplify = removetag . fixpoint (filltag . tag . normalize)
+simplify = removetag . fixpoint (normalize . filltag . tag)
+-- simplify = normalize
 
 rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "ω")
 rule2 = App w (Var w "f") ((App w (App w (App w (Var w "↪ω") (Var w "k'")) (Cnst w "v'"))) rule1)

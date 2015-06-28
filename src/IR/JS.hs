@@ -25,15 +25,17 @@ data Context = Context
   { unSS      :: [S] -> [S]
   , unWorld   :: M.Map String VarIndex
   , unIndex   :: VarIndex
-  , unLocals  :: S.Set String
+  , unArgs    :: S.Set String
   }
+
+newArg :: String -> State Context ()
+newArg arg = modify $ \st -> st { unArgs = S.insert arg (unArgs st) }
 
 newDecl :: String -> State Context [Int]
 newDecl decl = do
   st <- get
   put $ st { unWorld  = M.insert decl (unIndex st) (unWorld st)
            , unIndex  = init (unIndex st) ++ [last (unIndex st) + 1]
-           , unLocals = S.insert decl (unLocals st)
            }
   return $ unIndex st
 
@@ -44,7 +46,7 @@ newBlock :: Context -> Context
 newBlock st =
   st { unSS     = id
      , unIndex  = unIndex st ++ [1]
-     , unLocals = S.empty
+     , unArgs   = S.empty
      }
 
 exitBlock :: State Context ()
@@ -73,9 +75,13 @@ getobj _     _                   = Nothing
 resolveVar :: String -> State Context E
 resolveVar n = do
   st <- get
-  case M.lookup n (unWorld st) of
-    Just n' -> return $ Call (Ref worldFn) [Ref (showDecl n'), Ref world]
-    Nothing -> return $ Ref n
+  if S.member n (unArgs st)
+    then return $ Ref n
+    else case M.lookup n (unWorld st) of
+      Just n' -> return $ Call (Ref worldFn) [Const (showDecl n'), Ref world]
+      Nothing -> return $ Call (Ref worldFn) [Const n, Ref world]
+      -- Nothing -> return $ Call (Ref worldFn) [Const n, Ref "world"]
+      -- Nothing -> return $ Ref $ "REF<" ++ n ++ ">"
 
 convertE :: Expression a -> State Context E
 convertE (StringLit a lit) = return $ Const lit
@@ -106,21 +112,22 @@ convertE (NewExpr a f xs) = do
 convertE (PrefixExpr a op e) = do
   e' <- convertE e
   return $ Call (Ref $ show op) [e']
-convertE (UnaryAssignExpr a op (LVar a' lv))
-  | (opname, True)  <- op' = do
-      lv' <- resolveVar lv
-      pushBack $ Assign world (Call (Ref worldUpFn) [lv', (Call (Ref opname) [lv']), Ref world])
-      return $ (Call (Ref worldFn) [lv', Ref world])
-  | (opname, False) <- op' = do
-      lv' <- resolveVar lv
-      pushFront $ Assign world (Call (Ref worldUpFn) [lv', (Call (Ref opname) [lv']), Ref world])
-      return $ (Call (Ref worldFn) [lv', Ref world])
+convertE (UnaryAssignExpr a op (LVar a' lv)) = do
+  let (opname, push) = op'
+  st <- get
+  lv' <- resolveVar lv
+  case M.lookup lv (unWorld st) of
+    Just decl -> do
+      push $ Assign world (Call (Ref worldUpFn) [Const (showDecl decl), Call (Ref opname) [lv'], Ref world])
+    Nothing   -> do
+      push $ Assign world (Call (Ref worldUpFn) [Const lv, Call (Ref opname) [lv'], Ref world])
+  return lv'
   where
     op' = getOp op
-    getOp PrefixInc  = ("inc", True )
-    getOp PostfixInc = ("inc", False)
-    getOp PrefixDec  = ("dec", True )
-    getOp PostfixDec = ("dec", False)
+    getOp PrefixInc  = ("inc", pushBack )
+    getOp PostfixInc = ("inc", pushFront)
+    getOp PrefixDec  = ("dec", pushBack )
+    getOp PostfixDec = ("dec", pushFront)
 convertE (InfixExpr a op l r) = do
   l' <- convertE l
   r' <- convertE r
@@ -137,11 +144,11 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
 
   case M.lookup lv (unWorld st) of
     Just decl -> do
-      pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl decl), e', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Const (showDecl decl), e', Ref world])
     Nothing   -> do
-      pushBack $ Assign world (Call (Ref "set_global") [Const lv, e', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Const lv, e', Ref world])
 
-  return $ (Call (Ref worldFn) [lv', Ref world])
+  return lv'
 convertE (AssignExpr a op (LDot a' lv fld) rv) = do
   lv' <- convertE lv
   rv' <- convertE rv
@@ -150,10 +157,10 @@ convertE (AssignExpr a op (LDot a' lv fld) rv) = do
     Just n -> do
       case M.lookup n (unWorld st) of
         Just n' -> do
-          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref "set") [Const fld, rv', lv'], Ref world])
+          pushBack $ Assign world (Call (Ref worldUpFn) [Const (showDecl n'), Call (Ref "set") [Const fld, rv', lv'], Ref world])
           return $ (Call (Ref worldFn) [lv', Ref world])
         Nothing -> do
-          pushBack $ Assign world (Call (Ref worldUpFn) [Ref n, Call (Ref "set") [Const fld, rv', lv'], Ref world])
+          pushBack $ Assign world (Call (Ref worldUpFn) [Const n, Call (Ref "set") [Const fld, rv', lv'], Ref world])
           return $ (Call (Ref worldFn) [lv', Ref world])
       -- pushBack $ Assign n (Call (Ref "set") [lv', Const fld, rv'])
       -- return $ Ref n
@@ -172,14 +179,15 @@ convertE (CallExpr a f xs) = do
   whenJust (getobj False f) $ \n -> do
     case M.lookup n (unWorld st) of
       Just n' -> do
-        pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref worldFn) [Ref object, Ref world], Ref world])
+        pushBack $ Assign world (Call (Ref worldUpFn) [Const (showDecl n'), Call (Ref worldFn) [Ref object, Ref world], Ref world])
       Nothing ->
-        pushBack $ Assign world (Call (Ref worldUpFn) [Ref n, Call (Ref worldFn) [Ref object, Ref world], Ref world])
+        pushBack $ Assign world (Call (Ref worldUpFn) [Const n, Call (Ref worldFn) [Ref object, Ref world], Ref world])
 
   return $ (Call (Ref worldFn) [Ref result, Ref world])
 convertE (FuncExpr a n xs ss) = do
   st <- get
-  let ss' = unSS (execState (mapM_ convertS ss) (newBlock st)) []
+  let st' = execState (mapM newArg (map (\(Id _ n) -> n) xs)) (newBlock st)
+  let ss' = unSS (execState (mapM_ convertS ss) st') []
       l   = Lambda (map (\(Id _ n) -> n) xs ++ [world]) (P $ ss' ++ [Return (Ref world)])
 
   exitBlock
@@ -238,7 +246,7 @@ convertS (VarDeclStmt a decls) = do
     decl <- newDecl n
     whenJust e $ \e' -> do
       e'' <- convertE e'
-      pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl decl), e'', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Const (showDecl decl), e'', Ref world])
 {-
 convertS (FunctionStmt a (Id a) [Id a] [Statement a])
 -}
