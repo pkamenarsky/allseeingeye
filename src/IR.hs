@@ -116,7 +116,7 @@ removetag (Cnst w c)  = Cnst w c
 removetag (Var w c) = Var w c
 removetag (Extrn w c) = Extrn w c
 removetag (App w f@(App w2 (App w3 (Var w4 "↪ω") (Var w5 k)) v) x)
-  | k /= "ρ" && k /= "σ" = x
+  | k /= "ρ" && k /= "σ" = removetag x
   | otherwise = App w (App w2 (App w3 (Var w4 "↪ω") (Var w5 k)) (removetag v)) (removetag x)
 removetag (App w f x) = App w (removetag f) (removetag x)
 removetag (Lam w n f) = Lam w n (removetag f)
@@ -127,7 +127,7 @@ fixpoint f a | a == a' = a
   where a' = f a
 
 simplify :: L W -> L W
-simplify = fixpoint (removetag . filltag . tag . normalize)
+simplify = removetag . fixpoint (filltag . tag . normalize)
 
 rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "ω")
 rule2 = App w (Var w "f") ((App w (App w (App w (Var w "↪ω") (Var w "k'")) (Cnst w "v'"))) rule1)

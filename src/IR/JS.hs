@@ -152,7 +152,9 @@ convertE (AssignExpr a op (LDot a' lv fld) rv) = do
         Just n' -> do
           pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref "set") [Const fld, rv', lv'], Ref world])
           return $ (Call (Ref worldFn) [lv', Ref world])
-        Nothing -> error "dotref"
+        Nothing -> do
+          pushBack $ Assign world (Call (Ref worldUpFn) [Ref n, Call (Ref "set") [Const fld, rv', lv'], Ref world])
+          return $ (Call (Ref worldFn) [lv', Ref world])
       -- pushBack $ Assign n (Call (Ref "set") [lv', Const fld, rv'])
       -- return $ Ref n
     Nothing -> error "Dot expression without dotref?"
@@ -171,12 +173,16 @@ convertE (CallExpr a f xs) = do
     case M.lookup n (unWorld st) of
       Just n' -> do
         pushBack $ Assign world (Call (Ref worldUpFn) [Ref (showDecl n'), Call (Ref worldFn) [Ref object, Ref world], Ref world])
-      Nothing -> error "callexpr"
+      Nothing ->
+        pushBack $ Assign world (Call (Ref worldUpFn) [Ref n, Call (Ref worldFn) [Ref object, Ref world], Ref world])
 
   return $ (Call (Ref worldFn) [Ref result, Ref world])
 convertE (FuncExpr a n xs ss) = do
-  let ss' = unSS (execState (mapM_ convertS ss) idContext) []
+  st <- get
+  let ss' = unSS (execState (mapM_ convertS ss) (newBlock st)) []
       l   = Lambda (map (\(Id _ n) -> n) xs ++ [world]) (P $ ss' ++ [Return (Ref world)])
+
+  exitBlock
 
   case n of
     Just (Id _ n) -> do
