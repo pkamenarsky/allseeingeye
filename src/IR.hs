@@ -50,7 +50,7 @@ data L a = Cnst a String
          | Lam a Name (L a)
          deriving (Eq, Ord, Data, Typeable)
 
-data W = W { unW :: M.Map Name (L W) }
+data W = W { unW :: M.Map Name (L W) } deriving (Eq, Ord, Data, Typeable)
 
 w = W M.empty
 
@@ -96,15 +96,38 @@ tag (App _ f x) = App (W dw) (tag f) (tag x)
   where dw = (unW $ unTag $ tag x) `M.difference` (unW $ unTag $ tag f)
 tag (Lam w n f) = Lam w n (tag f)
 
-replace :: L W -> L W
-replace (Cnst w c)  = Cnst w c
-replace (Var w c) = Var w c
-replace (Extrn w c) = Extrn w c
-replace (App w1 (App w2 (Var w3 "↖ω") (Var w4 k)) w)
-  | Just v <- M.lookup k (unW $ unTag w) = v
-  | otherwise = App w1 (App w2 (Var w3 "↖ω") (Var w4 k)) (replace w)
-replace (App w f x) = App w (replace f) (replace x)
-replace (Lam w n f) = Lam w n (replace f)
+filltag :: L W -> L W
+filltag (Cnst w c)  = Cnst w c
+filltag (Var w c) = Var w c
+filltag (Extrn w c) = Extrn w c
+filltag (App w1 (App w2 (Var w3 "↖ω") (Var w4 k)) w)
+  | Just v <- M.lookup k (unW $ unTag w) = filltag v
+  | otherwise = App w1 (App w2 (Var w3 "↖ω") (Var w4 k)) (filltag w)
+filltag (App w f x) = App w (filltag f) (filltag x)
+filltag (Lam w n f) = Lam w n (filltag f)
+
+{-
+f x y (↪ω ... ω) ≈ f x y ω    | if f unbound
+↖ω k (↪ω k' v' ω) ≈ ↖ω k ω    | if k ≠ k'
+-}
+
+removetag :: L W -> L W
+removetag (Cnst w c)  = Cnst w c
+removetag (Var w c) = Var w c
+removetag (Extrn w c) = Extrn w c
+removetag (App w f@(App w2 (App w3 (Var w4 "↪ω") (Var w5 k)) v) x)
+  | k /= "ρ" && k /= "σ" = x
+  | otherwise = App w (App w2 (App w3 (Var w4 "↪ω") (Var w5 k)) (removetag v)) (removetag x)
+removetag (App w f x) = App w (removetag f) (removetag x)
+removetag (Lam w n f) = Lam w n (removetag f)
+
+fixpoint :: Eq a => (a -> a) -> a -> a
+fixpoint f a | a == a' = a
+             | otherwise = fixpoint f a'
+  where a' = f a
+
+simplify :: L W -> L W
+simplify = fixpoint (removetag . filltag . tag . normalize)
 
 rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "ω")
 rule2 = App w (Var w "f") ((App w (App w (App w (Var w "↪ω") (Var w "k'")) (Cnst w "v'"))) rule1)
@@ -315,11 +338,6 @@ rule1c = Var "↪ω" `App` [Var "k", Var "v", Var "↪ω" `App` [Var "k'", Var "
 
 rule2 = Var "↖ω" `App` Var "a" `App` (Var "↪ω" `App` Var "b" `App` Var "0" `App` (Var "↪ω" `App` Var "a" `App` Var "1" `App` Var "ω"))
 -}
-
-fixpoint :: Eq a => (a -> a) -> a -> a
-fixpoint f a | a == a' = a
-             | otherwise = fixpoint f a'
-  where a' = f a
 
 simplify :: L -> L
 simplify = fixpoint (rewriteL . rewriteInOut . normalize)

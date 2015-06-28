@@ -175,3 +175,15 @@ jsdecl =
   \  } \
   \ return b; \
   \ "
+
+jsdecl2 =
+  " var a = new Class(); \
+  \ var b = 666; \
+  \  { \
+  \    a = new Object(); \
+  \    { \
+  \      b = a.f(5); \
+  \    } \
+  \  } \
+  \ return a; \
+  \ "
