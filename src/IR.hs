@@ -188,7 +188,33 @@ log(y)
 ↖ω k (f … (↪ω k v)) ≈ v?
 
 ---
+
 (λω -> … ) ω ≈ …
+
+---
+
+ρ = f …
+
+(λρ → …) (⤚ x y z) ≈ (λx → (λy → (λz → …) z) y) x
+
+add5(array) {
+  array.push_back(5);
+  log();
+  return 666;
+}
+
+a = add5(x);
+
+    v
+
+add5(array, ω) {
+  array = array.push_back(5);
+  ω = log(ω);
+  return ⤚(666, array, ω);
+}
+
+ρ<a> = add5(x); // expands to a, x, ω = add5(x, ω);
+
 -}
 normalize :: L W -> L W
 normalize (Cnst w c)  = (Cnst w c)
