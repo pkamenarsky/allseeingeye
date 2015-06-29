@@ -54,8 +54,10 @@ addAssign v =  do
   when (M.member v (unWorld st))
        (put $ st { unAssign = S.insert v (unAssign st) })
 
+{-
 addF :: String -> E -> State Context ()
 addF v e = modify $ \st -> st { unF = M.insert v e (unF st) }
+-}
 
 exitBlock :: State Context ()
 exitBlock = do
@@ -120,7 +122,6 @@ convertE (UnaryAssignExpr a op (LVar a' lv)) = do
   let (opname, push) = op'
   st <- get
   lv' <- resolveVar lv
-  addAssign lv'
   push $ Assign lv' (Call (Ref opname) [Ref lv'])
   return $ Ref lv'
   where
@@ -144,7 +145,6 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
   lv' <- resolveVar lv
   addAssign lv'
   pushBack $ Assign lv' e'
-  addF lv' e'
   return $ Ref lv'
 convertE (AssignExpr a op (LDot a' lv fld) rv) = do
   lv' <- convertE lv
@@ -193,9 +193,10 @@ convertE (FuncExpr a n xs ss) = do
 convertS :: Statement a -> State Context ()
 convertS (BlockStmt a ss) = do
   st <- get
-  let ss' = unSS (execState (mapM_ convertS ss) (newBlock st)) []
+  let st' = execState (mapM_ convertS ss) (newBlock st)
+      ss' = unSS st' []
   exitBlock
-  pushBack $ Assign world (Call (Lambda [world] (P (ss' ++ [Return (Ref world)]))) [Ref world])
+  pushBack $ Assign world (Call (Lambda [world] (P (ss' ++ [Return (Call (Ref mergeFn) (map Ref $ (S.toList $ unAssign st') ++ [world]))]))) [Ref world])
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
 convertS (ExprStmt a e) = convertE e >> return ()

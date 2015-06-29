@@ -49,6 +49,7 @@ data L a = Cnst a String
          | Extrn a Name
          | App a (L a) (L a)
          | Lam a Name (L a)
+         | Rho a [Name] (L a)
          deriving (Eq, Ord, Data, Typeable)
 
 data W = W { unW :: M.Map Name (L W) } deriving (Eq, Ord, Data, Typeable)
@@ -217,6 +218,14 @@ add5(array, ω) {
 }
 
 ρ<a, ω> = add5(x, ω); // expands to a, ω, x, g = add5(x, ω);
+
+--
+
+(λρ<a, ω> → …) f
+
+if f unbound | (λρ → (λa → (λω → …) ↖2(ρ)) ↖1(ρ)) f
+otherwise    | (λρ<a, ω> →  …) (⤚ x y U V)
+             ≈ (λa → (λω → (λU → (λV → …) V) U) y) x
 
 -}
 normalize :: L W -> L W
