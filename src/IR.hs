@@ -200,6 +200,7 @@ log(y)
 add5(array) {
   array.push_back(5);
   log();
+  g = f(array);
   return 666;
 }
 
@@ -210,10 +211,11 @@ a = add5(x);
 add5(array, ω) {
   array = array.push_back(5);
   ω = log(ω);
-  return ⤚(666, array, ω);
+  g = f(array);
+  return ⤚(666, ω, array, g);
 }
 
-ρ<a> = add5(x); // expands to a, x, ω = add5(x, ω);
+ρ<a, ω> = add5(x, ω); // expands to a, ω, x, g = add5(x, ω);
 
 -}
 normalize :: L W -> L W
