@@ -198,3 +198,9 @@ jsdecl2 =
   \  } \
   \ return a; \
   \ "
+
+jsio =
+  " \
+  \ log(x) \
+  \ log(y) \
+  \ "

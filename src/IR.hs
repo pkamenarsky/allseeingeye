@@ -81,6 +81,9 @@ unTag (Extrn w _) = w
 unTag (App w _ _) = w
 unTag (Lam w _ _) = w
 
+removeresobj :: W -> W
+removeresobj = W . M.delete "ρ" . M.delete "σ" . unW
+
 tag :: L W -> L W
 tag (Cnst w c)  = Cnst w c
 tag (Var w c) = Var w c
@@ -88,9 +91,9 @@ tag (Extrn w c) = Extrn w c
 tag (App w f@(App _ (App _ (Var _ "↪ω") (Cnst _ k)) v) x)
   = App (W $ unW w `M.union` (M.insert k v $ unW $ unTag $ tag x)) (tag f) (tag x)
 
-tag (App _ f@(Var _ _) x)   = App (unTag $ tag x) f (tag x) -- f is unbound
-tag (App _ f@(Cnst _ _) x)  = App (unTag $ tag x) f (tag x) -- f is unbound
-tag (App _ f@(Extrn _ _) x) = App (unTag $ tag x) f (tag x) -- f is unbound
+tag (App _ f@(Var _ _) x)   = App (removeresobj $ unTag $ tag x) f (tag x) -- f is unbound
+tag (App _ f@(Cnst _ _) x)  = App (removeresobj $ unTag $ tag x) f (tag x) -- f is unbound
+tag (App _ f@(Extrn _ _) x) = App (removeresobj $ unTag $ tag x) f (tag x) -- f is unbound
 
 tag (App _ f x) = App (W dw) (tag f) (tag x)
   where dw = (unW $ unTag $ tag x) `M.difference` (unW $ unTag $ tag f)
@@ -127,8 +130,7 @@ fixpoint f a | a == a' = a
   where a' = f a
 
 simplify :: L W -> L W
-simplify = removetag . fixpoint (normalize . filltag . tag)
--- simplify = normalize
+simplify = fixpoint (normalize . tag)
 
 rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "ω")
 rule2 = App w (Var w "f") ((App w (App w (App w (Var w "↪ω") (Var w "k'")) (Cnst w "v'"))) rule1)
@@ -170,9 +172,28 @@ subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 -- subst n e e'@(Let k v x) = Let k (subst n e v) x
 subst n e e'@(Lam w n' f)  = Lam w n' (subst n e f)
 
-normalize :: L a -> L a
+{-
+↪ω k v
+↖ω k ω
+f … ω         | only keep ↪ω k v … if k bound in f
+
+log(x)
+log(y)
+
+ω = log(x, ω)
+ω = log(y, ω)
+
+(λω → (λω → ω) (log y ω)) (log x ω)
+
+↖ω k (f … (↪ω k v)) ≈ v?
+
+-}
+normalize :: L W -> L W
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
+normalize (App w1 (App w2 (Var w3 "↖ω") (Cnst w4 k)) w)
+  | Just v <- M.lookup k (unW $ unTag w) = normalize v
+  | otherwise = App w1 (App w2 (Var w3 "↖ω") (Cnst w4 k)) (normalize w)
 normalize (App w f x) = go (normalize f) (normalize x)
   where go (Lam _ n e) x' = normalize $ subst n x' e
         go f' x'        = App w f' x'

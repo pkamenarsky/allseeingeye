@@ -179,11 +179,11 @@ convertE (CallExpr a f xs) = do
   whenJust (getobj False f) $ \n -> do
     case M.lookup n (unWorld st) of
       Just n' -> do
-        pushBack $ Assign world (Call (Ref worldUpFn) [Const (showDecl n'), Call (Ref worldFn) [Ref object, Ref world], Ref world])
+        pushBack $ Assign world (Call (Ref worldUpFn) [Const (showDecl n'), Call (Ref worldFn) [Const object, Ref world], Ref world])
       Nothing ->
-        pushBack $ Assign world (Call (Ref worldUpFn) [Const n, Call (Ref worldFn) [Ref object, Ref world], Ref world])
+        pushBack $ Assign world (Call (Ref worldUpFn) [Const n, Call (Ref worldFn) [Const object, Ref world], Ref world])
 
-  return $ (Call (Ref worldFn) [Ref result, Ref world])
+  return $ (Call (Ref worldFn) [Const result, Ref world])
 convertE (FuncExpr a n xs ss) = do
   st <- get
   let st' = execState (mapM newArg (map (\(Id _ n) -> n) xs)) (newBlock st)
@@ -236,7 +236,7 @@ convertS (ThrowStmt a (Expression a))
 -}
 convertS (ReturnStmt a (Just e)) = do
   e' <- convertE e
-  pushBack $ Assign world (Call (Ref worldUpFn) [Ref result, e', Ref world])
+  pushBack $ Assign world (Call (Ref worldUpFn) [Const result, e', Ref world])
 convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref world)
 {-
 convertS (WithStmt a (Expression a) (Statement a))
