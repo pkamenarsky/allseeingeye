@@ -26,6 +26,8 @@ data Context = Context
   , unWorld   :: M.Map String VarIndex
   , unIndex   :: VarIndex
   , unArgs    :: S.Set String
+  , unAssign  :: S.Set String
+  , unF       :: M.Map String E
   }
 
 newDecl :: String -> State Context [Int]
@@ -46,13 +48,22 @@ newBlock st =
      , unArgs   = S.empty
      }
 
+addAssign :: String -> State Context ()
+addAssign v =  do
+  st <- get
+  when (M.member v (unWorld st))
+       (put $ st { unAssign = S.insert v (unAssign st) })
+
+addF :: String -> E -> State Context ()
+addF v e = modify $ \st -> st { unF = M.insert v e (unF st) }
+
 exitBlock :: State Context ()
 exitBlock = do
   st <- get
   put $ st { unIndex  = init (unIndex st) ++ [last (unIndex st) + 1] }
 
 idContext :: Context
-idContext = Context id M.empty [1] S.empty
+idContext = Context id M.empty [1] S.empty S.empty M.empty
 
 -- function name, impure arguments (0 is this, -1 is world)
 fns :: M.Map String [Int]
@@ -109,6 +120,7 @@ convertE (UnaryAssignExpr a op (LVar a' lv)) = do
   let (opname, push) = op'
   st <- get
   lv' <- resolveVar lv
+  addAssign lv'
   push $ Assign lv' (Call (Ref opname) [Ref lv'])
   return $ Ref lv'
   where
@@ -130,7 +142,9 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
   st  <- get
   e'  <- convertE e
   lv' <- resolveVar lv
+  addAssign lv'
   pushBack $ Assign lv' e'
+  addF lv' e'
   return $ Ref lv'
 convertE (AssignExpr a op (LDot a' lv fld) rv) = do
   lv' <- convertE lv
@@ -139,6 +153,7 @@ convertE (AssignExpr a op (LDot a' lv fld) rv) = do
   case getobj True lv of
     Just n -> do
       n' <- resolveVar n
+      addAssign n'
       pushBack $ Assign n' (Call (Ref "set") [Ref n', Const fld, rv', lv'])
       return $ (Call (Ref "get") [Ref n', Const fld, lv'])
       -- pushBack $ Assign n (Call (Ref "set") [lv', Const fld, rv'])

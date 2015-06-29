@@ -37,6 +37,7 @@ data E = Const String
 
 data S = Decl Name E
        | Assign Name E
+       | Destruct [Name] E
        | Return E
        | Ctrl E P
        deriving (Eq, Ord, Data, Typeable)
