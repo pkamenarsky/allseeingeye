@@ -187,6 +187,8 @@ log(y)
 
 ↖ω k (f … (↪ω k v)) ≈ v?
 
+---
+(λω -> … ) ω ≈ …
 -}
 normalize :: L W -> L W
 normalize (Cnst w c)  = (Cnst w c)
