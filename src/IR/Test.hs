@@ -12,6 +12,7 @@ import           IR
 import           IR.JS
 import           IR.Serialize
 
+{-
 pr2 = P
        [ Decl "x" (Const "5")
        , Decl "y" (Const "6")
@@ -106,6 +107,7 @@ l5 = sToE pr5
 l6 = sToP pr6
 
 l7 = sToP pr7
+-}
 
 -- js
 

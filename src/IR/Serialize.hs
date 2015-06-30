@@ -16,15 +16,20 @@ import qualified Data.Text                      as T
 
 import           IR
 
+instance Show Name where
+  show (Global n) = "G" ++ n
+  show (Local n) =  "L" ++ n
+  show (Bound n) =  "B" ++ n
+
 instance Show E where
   show (Const x) = x
-  show (Ref x) = x
+  show (Ref x) = show x
   show (Call f xs) = show f ++ "(" ++ intercalate "," (map show xs) ++ ")"
-  show (Lambda as s) = "\\(" ++ intercalate "," as ++ ") -> " ++ show s
+  show (Lambda as s) = "\\(" ++ intercalate "," (map show as) ++ ") -> " ++ show s
 
 instance Show S where
-  show (Decl a x) = "var " ++ a ++ " = " ++ show x
-  show (Assign a x) = a ++ " = " ++ show x
+  show (Decl a x) = "var " ++ show a ++ " = " ++ show x
+  show (Assign a x) = show a ++ " = " ++ show x
   show (Return x) = "return " ++ show x
   show (Ctrl f xs) = "ctrl(" ++ show f ++ ")" ++ show xs
 
@@ -35,13 +40,13 @@ instance Show W where
 #if 0
   show (W w) = "⟦" ++ intercalate ", " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ "⟧"
 #else
-  show (W w) = "(W " ++ intercalate " " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ ")"
+  show (W w) = "(W " ++ intercalate " " (map (\(k, v) -> show k ++ " → " ++ show v) $ Map.toList w) ++ ")"
 #endif
 
 instance Show a => Show (L a) where
   show (Cnst a c)   = c
-  show (Var a n)    = n
-  show (Extrn a n)  = "⟨" ++ n ++ "⟩"
+  show (Var a n)    = show n
+  show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
 
 #if 0
   show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ show a ++ ")"
@@ -52,5 +57,5 @@ instance Show a => Show (L a) where
   show (App a f@(Lam _ _ _) x)            = "(" ++ show f ++ ") " ++ show x ++ ""
   show (App a f x@(Lam _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
   show (App a f x)                      = "" ++ show f ++ " " ++ show x ++ ""
-  show (Lam a n f)                      = "λ" ++ n ++ " → " ++ show f ++ ""
+  show (Lam a n f)                      = "λ" ++ show n ++ " → " ++ show f ++ ""
 #endif

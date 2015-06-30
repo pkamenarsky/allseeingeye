@@ -25,12 +25,14 @@ import           Language.Lambda.Untyped.Quote
 
 import Debug.Trace
 
-type Name = String
+data Name = Local  String
+          | Bound  String
+          | Global String deriving (Eq, Ord, Data, Typeable)
 
 data CtrlType
 
 data E = Const String
-       | Ref String
+       | Ref Name
        | Call E [E]
        | Lambda [Name] P
        deriving (Eq, Ord, Data, Typeable)
@@ -78,6 +80,7 @@ sToP (P (Assign n e:ps)) = App w (Lam w n (sToP (P ps))) (sToE e)
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 
+{-
 unTag :: L a -> a
 unTag (Cnst w _)  = w
 unTag (Var w _)   = w
@@ -127,17 +130,20 @@ removetag (App w f@(App w2 (App w3 (Var w4 "↪ω") (Cnst w5 k)) v) x)
   | otherwise = App w (App w2 (App w3 (Var w4 "↪ω") (Cnst w5 k)) (removetag v)) (removetag x)
 removetag (App w f x) = App w (removetag f) (removetag x)
 removetag (Lam w n f) = Lam w n (removetag f)
+-}
 
 fixpoint :: Eq a => (a -> a) -> a -> a
 fixpoint f a | a == a' = a
              | otherwise = fixpoint f a'
   where a' = f a
 
-simplify :: L W -> L W
-simplify = fixpoint (normalize . tag)
+-- simplify :: L W -> L W
+-- simplify = fixpoint (normalize . tag)
 
+{-
 rule1 = App w (App w (App w (Var w "↪ω") (Var w "k")) (Cnst w "v")) (Var w "ω")
 rule2 = App w (Var w "f") ((App w (App w (App w (Var w "↪ω") (Var w "k'")) (Cnst w "v'"))) rule1)
+-}
 
 -- ω            = []
 -- ↪ω k v ω     = [k: v]
@@ -249,13 +255,17 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 (λX → …) a ≈ … [X → a<X>]
 
    (λX → (λY → + X Y) b) a
- ≈ (λX → + X b<Y>) a
- ≈ + a<X> b<Y>
- ≈ ⤚(+ a<X> b<Y>) a<X> b<Y>
+ ≈ (λX → ⤚(+ X b<Y>) b<Y>) a
+ ≈ ⤚a<X> (⤚(+ X b<Y>) b<Y>)
+ ≈ ⤚(+ X b<Y>) b<Y> a<X>
+
+   (λX → (λY → 5) b) a
+ ≈ (λX → ⤚5 b<Y>) a
+ ≈ ⤚5 b<Y> a<X>
 
 -}
 
-normalize :: L W -> L W
+normalize :: L String -> L String
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
 normalize (App w f x) = go (normalize f) (normalize x)
