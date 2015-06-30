@@ -54,7 +54,7 @@ newBlock st =
 addAssign :: String -> State Context ()
 addAssign v =  do
   st <- get
-  when (v == world || (not $ S.member v (unLocals st))) $ do
+  unless (S.member v (unLocals st)) $ do
     v' <- resolveVar v
     put $ st { unAssign = S.insert v' (unAssign st) }
 
@@ -172,7 +172,7 @@ convertE (CallExpr a f xs) = do
   xs' <- mapM convertE xs
   st  <- get
 
-  pushBack $ Assign world (Call f' (xs' ++ [Ref world]))
+  pushBack $ Assign result (Call f' xs')
 
   whenJust (getobj False f) $ \n -> do
     n' <- resolveVar n
