@@ -51,8 +51,9 @@ newBlock st =
 addAssign :: String -> State Context ()
 addAssign v =  do
   st <- get
-  when (M.member v (unWorld st))
-       (put $ st { unAssign = S.insert v (unAssign st) })
+  when (M.member v (unWorld st)) $ do
+    v' <- resolveVar v
+    put $ st { unAssign = S.insert v' (unAssign st) }
 
 {-
 addF :: String -> E -> State Context ()
@@ -143,7 +144,7 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
   st  <- get
   e'  <- convertE e
   lv' <- resolveVar lv
-  addAssign lv'
+  addAssign lv
   pushBack $ Assign lv' e'
   return $ Ref lv'
 convertE (AssignExpr a op (LDot a' lv fld) rv) = do
@@ -153,7 +154,7 @@ convertE (AssignExpr a op (LDot a' lv fld) rv) = do
   case getobj True lv of
     Just n -> do
       n' <- resolveVar n
-      addAssign n'
+      addAssign n
       pushBack $ Assign n' (Call (Ref "set") [Ref n', Const fld, rv', lv'])
       return $ (Call (Ref "get") [Ref n', Const fld, lv'])
       -- pushBack $ Assign n (Call (Ref "set") [lv', Const fld, rv'])
@@ -175,6 +176,7 @@ convertE (CallExpr a f xs) = do
     pushBack $ Assign n' (Call (Ref worldFn) [Const object, Ref world])
 
   return $ (Call (Ref worldFn) [Const result, Ref world])
+{-
 convertE (FuncExpr a n xs ss) = do
   st <- get
   let st' = execState (mapM newDecl (map (\(Id _ n) -> n) xs)) (newBlock st)
@@ -189,6 +191,7 @@ convertE (FuncExpr a n xs ss) = do
       return $ Ref n
     _ ->
       return l
+-}
 
 convertS :: Statement a -> State Context ()
 convertS (BlockStmt a ss) = do
@@ -196,7 +199,7 @@ convertS (BlockStmt a ss) = do
   let st' = execState (mapM_ convertS ss) (newBlock st)
       ss' = unSS st' []
   exitBlock
-  pushBack $ Assign world (Call (Lambda [world] (P (ss' ++ [Return (Call (Ref mergeFn) (map Ref $ (S.toList $ unAssign st') ++ [world]))]))) [Ref world])
+  pushBack $ Assign world (Call (Lambda [world] (P (ss' ++ [Return (Call (Ref mergeFn) (map Ref $ (world : (S.toList $ unAssign st'))))]))) [Ref world])
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
 convertS (ExprStmt a e) = convertE e >> return ()
@@ -227,8 +230,10 @@ convertS (TryStmt a (Statement a) (Maybe (CatchClause a)) (Maybe (Statement a)))
 convertS (ThrowStmt a (Expression a))
 -}
 convertS (ReturnStmt a (Just e)) = do
+  st <- get
   e' <- convertE e
-  pushBack $ Assign world (Call (Ref worldUpFn) [Const result, e', Ref world])
+  pushBack $ Return (Call (Ref mergeFn) (Ref world : e' : (map Ref (S.toList $ unAssign st))))
+  -- pushBack $ Assign world (Call (Ref worldUpFn) [Const result, e', Ref world])
 convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref world)
 {-
 convertS (WithStmt a (Expression a) (Statement a))
@@ -253,7 +258,7 @@ parseExpr str = case parse expression "" str of
   Left err   -> error $ show err
 
 testConvert :: String -> P
-testConvert e = P $ unSS ss [Return (Ref world)]
+testConvert e = P $ unSS ss []
   where (_, ss)       = runState (convertS $ BlockStmt a pr) idContext
         (Script a pr) = parseProgram e
 

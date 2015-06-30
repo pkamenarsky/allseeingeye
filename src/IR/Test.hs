@@ -199,6 +199,17 @@ jsdecl2 =
   \ return a; \
   \ "
 
+jsdecl3 =
+  " var a = 555; \
+  \ var b = 666; \
+  \  { \
+  \    b = 6; \
+  \    a = 7; \
+  \  } \
+  \ c = 888; \
+  \ return a; \
+  \ "
+
 jsio =
   " \
   \ log(x) \
