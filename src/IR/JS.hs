@@ -27,6 +27,7 @@ data Context = Context
   , unIndex   :: VarIndex
   , unArgs    :: S.Set String
   , unAssign  :: S.Set String
+  , unLocals  :: S.Set String
   , unF       :: M.Map String E
   }
 
@@ -35,6 +36,7 @@ newDecl decl = do
   st <- get
   put $ st { unWorld  = M.insert decl (unIndex st) (unWorld st)
            , unIndex  = init (unIndex st) ++ [last (unIndex st) + 1]
+           , unLocals = S.insert decl (unLocals st)
            }
   return $ unIndex st
 
@@ -46,12 +48,13 @@ newBlock st =
   st { unSS     = id
      , unIndex  = unIndex st ++ [1]
      , unArgs   = S.empty
+     , unLocals = S.empty
      }
 
 addAssign :: String -> State Context ()
 addAssign v =  do
   st <- get
-  when (M.member v (unWorld st)) $ do
+  when (v == world || (not $ S.member v (unLocals st))) $ do
     v' <- resolveVar v
     put $ st { unAssign = S.insert v' (unAssign st) }
 
@@ -66,7 +69,7 @@ exitBlock = do
   put $ st { unIndex  = init (unIndex st) ++ [last (unIndex st) + 1] }
 
 idContext :: Context
-idContext = Context id M.empty [1] S.empty S.empty M.empty
+idContext = Context id M.empty [1] S.empty S.empty S.empty M.empty
 
 -- function name, impure arguments (0 is this, -1 is world)
 fns :: M.Map String [Int]
@@ -198,8 +201,12 @@ convertS (BlockStmt a ss) = do
   st <- get
   let st' = execState (mapM_ convertS ss) (newBlock st)
       ss' = unSS st' []
+      isR (Return _) = True
+      isR _          = False
+      lastR | null ss'  = False
+            | otherwise = isR $ last ss'
   exitBlock
-  pushBack $ Assign world (Call (Lambda [world] (P (ss' ++ [Return (Call (Ref mergeFn) (map Ref $ (world : (S.toList $ unAssign st'))))]))) [Ref world])
+  pushBack $ Assign result (Call (Lambda [] (P (ss' ++ if lastR then [] else [Return (Call (Ref mergeFn) (map Ref $ (S.toList $ unAssign st')))]))) [])
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
 convertS (ExprStmt a e) = convertE e >> return ()
@@ -232,7 +239,7 @@ convertS (ThrowStmt a (Expression a))
 convertS (ReturnStmt a (Just e)) = do
   st <- get
   e' <- convertE e
-  pushBack $ Return (Call (Ref mergeFn) (Ref world : e' : (map Ref (S.toList $ unAssign st))))
+  pushBack $ Return (Call (Ref mergeFn) (e' : (map Ref (S.toList $ unAssign st))))
   -- pushBack $ Assign world (Call (Ref worldUpFn) [Const result, e', Ref world])
 convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref world)
 {-
