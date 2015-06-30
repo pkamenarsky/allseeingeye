@@ -227,6 +227,21 @@ if f unbound | (λρ → (λa → (λω → …) ↖2(ρ)) ↖1(ρ)) f
 otherwise    | (λρ<a, ω> →  …) (⤚ x y U V)
              ≈ (λa → (λω → (λU → (λV → …) V) U) y) x
 
+---
+
+lambda ≈ let x = a in letlocal y = b in … in ⤚(x, …) | x not local
+
+let x = ⤚(Ta, Tb, Tω) in ... ≈ let a = Ta in let b = Tb in let ω = Tω in …
+
+---
+
+a = f(x)      | f is pure, no problem
+a = io(x)     | ρ<a, ω> = io(x)
+n.push(x)     | n = push(n, x)
+r = s.spilt() | ρ<r, s> = split(s)
+r = c.io(x)   | ρ<r, c, ω> = io(c, x)
+
+
 -}
 normalize :: L W -> L W
 normalize (Cnst w c)  = (Cnst w c)
