@@ -49,6 +49,8 @@ data L a = Cnst a String
          | Extrn a Name
          | App a (L a) (L a)
          | Lam a Name (L a)
+         | Let a Name (L a) (L a)
+         | Letlocal a Name (L a) (L a)
          | Rho a [Name] (L a)
          deriving (Eq, Ord, Data, Typeable)
 
@@ -235,20 +237,27 @@ let x = ⤚(Ta, Tb, Tω) in ... ≈ let a = Ta in let b = Tb in let ω = Tω in 
 
 ---
 
-a = f(x)      | f is pure, no problem
-a = io(x)     | ρ<a, ω> = io(x)
-n.push(x)     | n = push(n, x)
-r = s.spilt() | ρ<r, s> = split(s)
-r = c.io(x)   | ρ<r, c, ω> = io(c, x)
+a = f(x)      | ρ<a, ω> = f(x, ↖ω), use ↖a instead of a
+n.push(x)     | ρ<n, ω> = push(n, x, ↖ω)
+r = c.push(x) | ρ<r, c, ω> = push(c, x, ↖ω)
 
+let[C] x = a in … ≈ ((λx → …) a)[x:C]
+(f a)[x, y, z, …] ≈ ⤚(f a) x y z …
+
+---
+
+(λX → …) a ≈ … [X → a<X>]
+
+   (λX → (λY → + X Y) b) a
+ ≈ (λX → + X b<Y>) a
+ ≈ + a<X> b<Y>
+ ≈ ⤚(+ a<X> b<Y>) a<X> b<Y>
 
 -}
+
 normalize :: L W -> L W
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
-normalize (App w1 (App w2 (Var w3 "↖ω") (Cnst w4 k)) w)
-  | Just v <- M.lookup k (unW $ unTag w) = normalize v
-  | otherwise = App w1 (App w2 (Var w3 "↖ω") (Cnst w4 k)) (normalize w)
 normalize (App w f x) = go (normalize f) (normalize x)
   where go (Lam _ n e) x' = normalize $ subst n x' e
         go f' x'        = App w f' x'
