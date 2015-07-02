@@ -55,7 +55,7 @@ data L a = Cnst a String
          | Let a Name (L a) (L a)
          | Letlocal a Name (L a) (L a)
          | Rho a [Name] (L a)
-         | Merge a [(String, L a)]
+         | Merge a (M.Map String (L a))
          deriving (Eq, Ord, Data, Typeable)
 
 data W = W { unW :: M.Map Name (L W) } deriving (Eq, Ord, Data, Typeable)
@@ -183,7 +183,7 @@ subst n e e'@(Var _ n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 -- subst n e e'@(Let k v x) = Let k (subst n e v) x
 subst n e e'@(Lam w n' f)  = Lam w n' (subst n e f)
-subst n e e'@(Merge w xs)  = Merge w (map (second (subst n e)) xs)
+subst n e e'@(Merge w xs)  = Merge w (M.map (subst n e) xs)
 
 {-
 ↪ω k v
@@ -271,16 +271,29 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 normalize :: L String -> L String
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
-{-
-normalize (App w (App w2 (Cnst w3 "⤚") x) y) = go x y
-  where go (App w4 (Cnst w5 "⤚") x') (Var w6 n) = undefined
--}
-normalize (Merge w xs) = Merge w (map (second normalize) xs)
+normalize (Merge w xs) = Merge w (M.insert "ρ" res $ M.unions $ map go $ M.toList xs)
+  where go (_, Merge w xs) = M.map normalize xs
+        go (n, e)          = M.singleton n (normalize e)
+
+        res | Just (Merge w2 xs2) <- M.lookup "ρ" xs
+            , Just r <- M.lookup "ρ" xs2 = r
+            | Just r <- M.lookup "ρ" xs  = r
+            | otherwise = error "merge: no ρ"
+normalize (App w (Merge w2 xs) (Merge w3 xs2))
+  | Just f' <- M.lookup "ρ" xs
+  , Just x' <- M.lookup "ρ" xs2 = Merge w2 (M.insert "ρ" (normalize $ App w f' x') $ M.union xs xs2)
+  | otherwise                   = error "app: no ρ/ρ"
+normalize (App w f (Merge w2 xs))
+  | Just x' <- M.lookup "ρ" xs = Merge w2 (M.insert "ρ" (normalize $ App w f x') xs)
+  | otherwise                  = error "app: no f/ρ"
+normalize (App w (Merge w2 xs) x)
+  | Just f' <- M.lookup "ρ" xs = Merge w2 (M.insert "ρ" (normalize $ App w f' x) xs)
+  | otherwise                  = error "app: no ρ"
 normalize (App w f x) = go (normalize f) (normalize x)
   where go (Lam _ n e) x' = normalize $ subst n x' e
-        go f' x'        = App w f' x'
-normalize (Lam w (Bound n) f) =  Lam w (Local n) (normalize (Merge w [("ρ", normalize f), (n, Var w (Local n))]))
-normalize (Lam w (Global n) f) =  Lam w (Local n) (normalize (Merge w [("ρ", normalize f), (n, Var w (Local n))]))
+        go f' x'          = App w f' x'
+normalize (Lam w (Bound n) f) =  Lam w (Local n) (normalize (Merge w $ M.fromList [("ρ", normalize f), (n, Var w (Local n))]))
+normalize (Lam w (Global n) f) =  Lam w (Local n) (normalize (Merge w $ M.fromList [("ρ", normalize f), (n, Var w (Local n))]))
 normalize (Lam w n f) = Lam w n (normalize f)
 normalize e = e
 
@@ -298,7 +311,7 @@ cnst = Cnst u
 
 rule1 = cnst "⤚" `app` varlocal "x" `app` varlocal "y"
 rule2 = lam (local"f") (lam (bound "x") (varlocal "f" `app` varlocal "x" `app` varlocal "y"))
-rule3 = rule2 `app` (lam (local "a") (lam (local "b") (varglobal "*" `app` varlocal "a" `app` varlocal "b"))) `app` cnst "5"
+rule3 = rule2 `app` (lam (bound "a") (lam (local "b") (varglobal "*" `app` varlocal "a" `app` varlocal "b"))) `app` cnst "5"
 
 {-
 -- 1. (λa → …) b          ≈ let a = b in …
