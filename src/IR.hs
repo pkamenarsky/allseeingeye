@@ -268,17 +268,32 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 normalize :: L String -> L String
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
+{-
+normalize (App w (App w2 (Cnst w3 "⤚") x) y) = go x y
+  where go (App w4 (Cnst w5 "⤚") x') (Var w6 n) = undefined
+-}
 normalize (App w f x) = go (normalize f) (normalize x)
   where go (Lam _ n e) x' = normalize $ subst n x' e
         go f' x'        = App w f' x'
-normalize (Lam w n f) = go (normalize f)
-  where
-        {-
-        go f'@(Var n') | n == n'   = Var n
-                       | otherwise = Lam n f'
-        -}
-        go f' = Lam w n f'
+normalize (Lam w (Bound n) f) =  Lam w (Local n) (normalize (App w (App w (Cnst w mergeFn) (normalize f)) (Var w (Bound n))))
+normalize (Lam w (Global n) f) = Lam w (Local n) (normalize (App w (App w (Cnst w mergeFn) (normalize f)) (Var w (Global n))))
+normalize (Lam w n f) = Lam w n (normalize f)
 normalize e = e
+
+u = undefined
+app = App u
+lam = Lam u
+var = Var u
+global = Global
+local = Local
+bound = Bound
+varglobal = Var u . Global
+varlocal = Var u . Local
+varbound = Var u . Bound
+cnst = Cnst u
+
+rule1 = cnst "⤚" `app` varlocal "x" `app` varlocal "y"
+rule2 = lam (bound "x") (varglobal "+" `app` varlocal "x" `app` varlocal "y")
 
 {-
 -- 1. (λa → …) b          ≈ let a = b in …
