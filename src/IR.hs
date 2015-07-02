@@ -270,7 +270,7 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 
 -- tracedbg str x = trace str
 
-normalize :: L String -> L String
+normalize :: L a -> L a
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
 normalize (Merge w xs) = -- (\x -> trace ("R: " ++ show res) x) $
@@ -315,6 +315,7 @@ cnst = Cnst u
 rule1 = cnst "⤚" `app` varlocal "x" `app` varlocal "y"
 rule2 = lam (local"f") (lam (bound "x") (varlocal "f" `app` varlocal "x" `app` varlocal "y"))
 rule3 = rule2 `app` (lam (bound "a") (lam (local "b") (varglobal "*" `app` varlocal "a" `app` varlocal "b"))) `app` cnst "5"
+rule4 = lam (bound "a") (lam (bound "b") (varglobal "+" `app` varlocal "a" `app` varlocal "b") `app` cnst "6") `app` cnst "5"
 
 {-
 -- 1. (λa → …) b          ≈ let a = b in …

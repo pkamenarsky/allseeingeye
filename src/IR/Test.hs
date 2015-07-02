@@ -203,7 +203,7 @@ jsdecl2 =
 
 jsdecl3 =
   " var a = 555; \
-  \ var b = 666; \
+  \ b = 666; \
   \  { \
   \    var b; \
   \    b = 6; \

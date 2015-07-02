@@ -208,7 +208,8 @@ convertS (BlockStmt a ss) = do
       lastR | null ss'  = False
             | otherwise = isR $ last ss'
   exitBlock
-  pushBack $ Assign (Local result) (Call (Lambda [] (P (ss' ++ if lastR then [] else [Return (Call (Ref $ Global mergeFn) (map Ref $ (S.toList $ unAssign st')))]))) [])
+  -- pushBack $ Assign (Local result) (Call (Lambda [] (P (ss' ++ if lastR then [] else [Return (Call (Ref $ Global mergeFn) (map Ref $ (S.toList $ unAssign st')))]))) [])
+  pushBack $ Assign (Bound world) (Call (Lambda [Bound world] (P (ss' ++ if lastR then [] else [Return (Ref $ Local world)]))) [Ref $ Local world])
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
 convertS (ExprStmt a e) = convertE e >> return ()
@@ -241,7 +242,8 @@ convertS (ThrowStmt a (Expression a))
 convertS (ReturnStmt a (Just e)) = do
   st <- get
   e' <- convertE e
-  pushBack $ Return (Call (Ref $ Global mergeFn) (e' : (map Ref (S.toList $ unAssign st))))
+  pushBack $ Return e'
+  -- pushBack $ Return (Call (Ref $ Global mergeFn) (e' : (map Ref (S.toList $ unAssign st))))
   -- pushBack $ Assign world (Call (Ref worldUpFn) [Const result, e', Ref world])
 convertS (ReturnStmt a Nothing) = pushBack $ Return (Ref $ Local world)
 {-
@@ -267,7 +269,7 @@ parseExpr str = case parse expression "" str of
   Left err   -> error $ show err
 
 testConvert :: String -> P
-testConvert e = P $ unSS ss []
+testConvert e = P $ unSS ss [Return $ Ref $ Local world]
   where (_, ss)       = runState (convertS $ BlockStmt a pr) idContext
         (Script a pr) = parseProgram e
 
