@@ -271,13 +271,13 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 normalize :: L String -> L String
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
-normalize (Merge w xs) = Merge w (M.insert "ρ" res $ M.unions $ map go $ M.toList xs)
+normalize (Merge w xs) = Merge w (M.insert "ρ" res $ M.unions $ map go $ reverse $ M.toList xs)
   where go (_, Merge w xs) = M.map normalize xs
         go (n, e)          = M.singleton n (normalize e)
 
         res | Just (Merge w2 xs2) <- M.lookup "ρ" xs
-            , Just r <- M.lookup "ρ" xs2 = r
-            | Just r <- M.lookup "ρ" xs  = r
+            , Just r <- M.lookup "ρ" xs2 = normalize r
+            | Just r <- M.lookup "ρ" xs  = normalize r
             | otherwise = error "merge: no ρ"
 normalize (App w (Merge w2 xs) (Merge w3 xs2))
   | Just f' <- M.lookup "ρ" xs
