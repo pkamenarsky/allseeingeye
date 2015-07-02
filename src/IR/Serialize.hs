@@ -53,9 +53,10 @@ instance Show a => Show (L a) where
   show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ show a ++ ")"
 #else
   show (App a f@(Lam _ _ _) x@(App _ _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")"
-  show (App a f x@(App _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
-  show (App a f@(Lam _ _ _) x)            = "(" ++ show f ++ ") " ++ show x ++ ""
-  show (App a f x@(Lam _ _ _))            = "" ++ show f ++ " (" ++ show x ++ ")"
-  show (App a f x)                      = "" ++ show f ++ " " ++ show x ++ ""
-  show (Lam a n f)                      = "λ" ++ show n ++ " → " ++ show f ++ ""
+  show (App a f x@(App _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App a f@(Lam _ _ _) x)              = "(" ++ show f ++ ") " ++ show x ++ ""
+  show (App a f x@(Lam _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
+  show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
+  show (Merge a xs)                         = "⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "⟨" ++ show v ++ "⟩") xs)
 #endif

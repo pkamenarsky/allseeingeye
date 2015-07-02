@@ -2,6 +2,7 @@
 
 module IR where
 
+import           Control.Arrow                (second)
 import           Control.Applicative          ((<$>), (<*>), (<|>), pure)
 import           Control.Monad
 import           Control.Monad.State
@@ -54,6 +55,7 @@ data L a = Cnst a String
          | Let a Name (L a) (L a)
          | Letlocal a Name (L a) (L a)
          | Rho a [Name] (L a)
+         | Merge a [(String, L a)]
          deriving (Eq, Ord, Data, Typeable)
 
 data W = W { unW :: M.Map Name (L W) } deriving (Eq, Ord, Data, Typeable)
@@ -181,6 +183,7 @@ subst n e e'@(Var _ n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 -- subst n e e'@(Let k v x) = Let k (subst n e v) x
 subst n e e'@(Lam w n' f)  = Lam w n' (subst n e f)
+subst n e e'@(Merge w xs)  = Merge w (map (second (subst n e)) xs)
 
 {-
 ↪ω k v
@@ -272,11 +275,12 @@ normalize (Var w n)   = (Var w n)
 normalize (App w (App w2 (Cnst w3 "⤚") x) y) = go x y
   where go (App w4 (Cnst w5 "⤚") x') (Var w6 n) = undefined
 -}
+normalize (Merge w xs) = Merge w (map (second normalize) xs)
 normalize (App w f x) = go (normalize f) (normalize x)
   where go (Lam _ n e) x' = normalize $ subst n x' e
         go f' x'        = App w f' x'
-normalize (Lam w (Bound n) f) =  Lam w (Local n) (normalize (App w (App w (Cnst w mergeFn) (normalize f)) (Var w (Bound n))))
-normalize (Lam w (Global n) f) = Lam w (Local n) (normalize (App w (App w (Cnst w mergeFn) (normalize f)) (Var w (Global n))))
+normalize (Lam w (Bound n) f) =  Lam w (Local n) (normalize (Merge w [("ρ", normalize f), (n, Var w (Local n))]))
+normalize (Lam w (Global n) f) =  Lam w (Local n) (normalize (Merge w [("ρ", normalize f), (n, Var w (Local n))]))
 normalize (Lam w n f) = Lam w n (normalize f)
 normalize e = e
 
@@ -293,7 +297,8 @@ varbound = Var u . Bound
 cnst = Cnst u
 
 rule1 = cnst "⤚" `app` varlocal "x" `app` varlocal "y"
-rule2 = lam (bound "x") (varglobal "+" `app` varlocal "x" `app` varlocal "y")
+rule2 = lam (local"f") (lam (bound "x") (varlocal "f" `app` varlocal "x" `app` varlocal "y"))
+rule3 = rule2 `app` (lam (local "a") (lam (local "b") (varglobal "*" `app` varlocal "a" `app` varlocal "b"))) `app` cnst "5"
 
 {-
 -- 1. (λa → …) b          ≈ let a = b in …
