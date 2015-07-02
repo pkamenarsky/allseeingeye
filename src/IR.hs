@@ -273,14 +273,14 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 normalize :: L String -> L String
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
-normalize (Merge w xs) = (\x -> trace (show res) x) $
+normalize (Merge w xs) = -- (\x -> trace ("R: " ++ show res) x) $
   Merge w (M.insert "ρ" res $ M.unions $ map go $ reverse $ M.toList xs)
-  where go (_, Merge w xs) = M.map normalize xs
-        go (n, e)          = M.singleton n (normalize e)
+  where go (_, Merge w xs) = {- trace ("xs: " ++ show xs) $ -} M.delete "ρ" $ M.map normalize xs
+        go (n, e)          = {- trace ("x: " ++ show e) $ -} M.singleton n (normalize e)
 
-        res | Just (Merge w2 xs2) <- M.lookup "ρ" xs
-            , Just r <- M.lookup "ρ" xs2 = normalize r
-            | Just r <- M.lookup "ρ" xs  = normalize r
+        res | Just (Merge w2 xs2) <- M.lookup "ρ" $ M.map normalize xs
+            , Just r <- M.lookup "ρ" $ M.map normalize xs2 = r
+            | Just r <- M.lookup "ρ" $ M.map normalize xs  = normalize r
             | otherwise = error "merge: no ρ"
 normalize (App w (Merge w2 xs) (Merge w3 xs2))
   | Just f' <- M.lookup "ρ" xs
@@ -560,5 +560,5 @@ instance Show a => Show (L a) where
   show (App a f x@(Lam _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
   show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
-  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "⟨" ++ show v ++ "⟩") $ M.toList xs) ++ ")"
+  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") $ M.toList xs) ++ ")"
 #endif
