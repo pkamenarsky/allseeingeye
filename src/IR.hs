@@ -268,10 +268,13 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 
 -}
 
+-- tracedbg str x = trace str
+
 normalize :: L String -> L String
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
-normalize (Merge w xs) = Merge w (M.insert "ρ" res $ M.unions $ map go $ reverse $ M.toList xs)
+normalize (Merge w xs) = (\x -> trace (show res) x) $
+  Merge w (M.insert "ρ" res $ M.unions $ map go $ reverse $ M.toList xs)
   where go (_, Merge w xs) = M.map normalize xs
         go (n, e)          = M.singleton n (normalize e)
 
@@ -529,3 +532,33 @@ lmtree1 l@(Lam n1 f1) r@(Lam n2 f2)
  | otherwise = Nothing
 lmtree1 l r = subtree l r
 -}
+
+instance Show W where
+#if 0
+  show (W w) = "⟦" ++ intercalate ", " (map (\(k, v) -> k ++ " → " ++ show v) $ M.toList w) ++ "⟧"
+#else
+  show (W w) = "(W " ++ intercalate " " (map (\(k, v) -> show k ++ " → " ++ show v) $ M.toList w) ++ ")"
+#endif
+
+instance Show Name where
+  show (Global n) = "G" ++ n
+  show (Local n) =  "L" ++ n
+  show (Bound n) =  "B" ++ n
+
+instance Show a => Show (L a) where
+  show (Cnst a c)   = c
+  show (Var a n)    = show n
+  show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
+
+#if 0
+  show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ show a ++ ")"
+  show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ show a ++ ")"
+#else
+  show (App a f@(Lam _ _ _) x@(App _ _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")"
+  show (App a f x@(App _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App a f@(Lam _ _ _) x)              = "(" ++ show f ++ ") " ++ show x ++ ""
+  show (App a f x@(Lam _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
+  show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
+  show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
+  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "⟨" ++ show v ++ "⟩") $ M.toList xs) ++ ")"
+#endif

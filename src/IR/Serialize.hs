@@ -16,10 +16,12 @@ import qualified Data.Text                      as T
 
 import           IR
 
+{-
 instance Show Name where
   show (Global n) = "G" ++ n
   show (Local n) =  "L" ++ n
   show (Bound n) =  "B" ++ n
+-}
 
 instance Show E where
   show (Const x) = x
@@ -36,6 +38,7 @@ instance Show S where
 instance Show P where
   show (P ss) = "{\n" ++ intercalate "\n" (map show ss) ++ "\n}"
 
+{-
 instance Show W where
 #if 0
   show (W w) = "⟦" ++ intercalate ", " (map (\(k, v) -> k ++ " → " ++ show v) $ Map.toList w) ++ "⟧"
@@ -60,3 +63,4 @@ instance Show a => Show (L a) where
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
   show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "⟨" ++ show v ++ "⟩") $ Map.toList xs) ++ ")"
 #endif
+-}
