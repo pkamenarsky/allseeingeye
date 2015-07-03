@@ -290,10 +290,37 @@ boundmerge = replaceret f
             isBound (Bound  _) = True
             isBound (Local  _) = False
 
+{-
+  (λf → ⤚ ρ<f 5> c d) (λx → ⤚ ρ<x> a b)
+≈ ⤚ ρ<⤚ ρ<x> a b> c d
+≈ ⤚ ρ<x> a b c d
+
+but this is automatically done by the destruct rule:
+
+  (λρ<a, b> → …) (⤚ x y z)
+≈ (λa → (λb → (λz → …) z) y) x
+
+-}
+
+zip' :: [a] -> [b] -> [(Maybe a, Maybe b)]
+zip' [] []         = []
+zip' (x:xs) (y:ys) = (Just x, Just y) :zip' xs ys
+zip' (x:xs) []     = (Just x, Nothing):zip' xs []
+zip' [] (y:ys)     = (Nothing, Just y):zip' [] ys
+
 normalize :: Show a => L a -> L a
 normalize e | trace (show e) False = undefined
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
+normalize (App w (Lam w2 ns f) ms) = App w (Lam w2 ns' f) xs'
+  where ns' = undefined
+        xs' = undefined
+  -- where ns' = map (\n -> name n ns
+{-
+normalize (App w (Lam w2 n f) (Merge w3 xs))
+  = normalize $ foldl (\a (n, e) -> App w2 (Lam w2 (Bound n) a) e) f (replace_1st (name n) $ M.toList xs)
+  where replace_1st _ [] = []
+        replace_1st n' ((n,x):xs) = (n',x):xs
 normalize (Merge w xs) = -- (\x -> trace ("R: " ++ show res) x) $
   Merge w (M.insert "ρ" res $ M.unions $ map go $ reverse $ M.toList xs)
   where go (_, Merge w xs) = {- trace ("xs: " ++ show xs) $ -} M.delete "ρ" $ M.map normalize xs
@@ -303,11 +330,6 @@ normalize (Merge w xs) = -- (\x -> trace ("R: " ++ show res) x) $
             , Just r <- M.lookup "ρ" $ M.map normalize xs2 = r
             | Just r <- M.lookup "ρ" $ M.map normalize xs  = normalize r
             | otherwise = error "merge: no ρ"
-{-
-normalize (App w (Lam w2 n f) (Merge w3 xs))
-  = normalize $ foldl (\a (n, e) -> App w2 (Lam w2 (Bound n) a) e) f (replace_1st (name n) $ M.toList xs)
-  where replace_1st _ [] = []
-        replace_1st n' ((n,x):xs) = (n',x):xs
 normalize (App w (Merge w2 xs) (Merge w3 xs2))
   | Just f' <- M.lookup "ρ" xs
   , Just x' <- M.lookup "ρ" xs2 = Merge w2 (M.insert "ρ" (normalize $ App w f' x') $ M.union xs xs2)
