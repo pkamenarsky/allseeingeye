@@ -209,7 +209,7 @@ convertS (BlockStmt a ss) = do
             | otherwise = isR $ last ss'
   exitBlock
   -- pushBack $ Assign (Local result) (Call (Lambda [] (P (ss' ++ if lastR then [] else [Return (Call (Ref $ Global mergeFn) (map Ref $ (S.toList $ unAssign st')))]))) [])
-  pushBack $ Assign (Local world) (Call (Lambda [Bound world] (P (ss' ++ if lastR then [] else [Return (Ref $ Local world)]))) [Ref $ Local world])
+  pushBack $ Assign (Local world) (Call (Lambda [Local world] (P (ss' ++ if lastR then [] else [Return (Ref $ Local world)]))) [Ref $ Local world])
 convertS (EmptyStmt a) = return ()
 convertS (ExprStmt a e@(AssignExpr _ _ _ _)) = convertE e >> return ()
 convertS (ExprStmt a e) = convertE e >> return ()

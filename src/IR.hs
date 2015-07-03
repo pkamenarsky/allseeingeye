@@ -270,6 +270,11 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 
 -- tracedbg str x = trace str
 
+replaceret :: L a -> (L a -> L a) -> L a
+replaceret (App w (Lam w2 ns lam) xs) f
+  | length ns == length xs = App w (Lam w2 ns (replaceret lam f)) xs
+  | otherwise              = error "replaceret: curried application"
+replaceret e f = f e
 
 boundmerge :: L a -> L a
 boundmerge (Cnst w c)  = (Cnst w c)
@@ -579,7 +584,7 @@ instance Show a => Show (L a) where
   show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ show a ++ ")"
 #else
   show (App a f x)                      = "(" ++ show f ++ " " ++ intercalate " " (map show x) ++ ")"
-  show (Lam a n f)                      = "λ" ++ intercalate " " (map show n) ++ " → " ++ show f ++ ""
+  show (Lam a n f)                      = "(λ" ++ intercalate " " (map show n) ++ " → " ++ show f ++ ")"
 {-
   show (App a f@(Lam _ _ _) x@(App _ _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")"
   show (App a f x@(App _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
