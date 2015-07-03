@@ -52,6 +52,7 @@ data L a = Cnst a String
          | Rho a [Name] (L a)
          -- | Merge a (M.Map String (L a))
          | Merge a [(String, L a)]
+         | Hold a Name (L a)
          deriving (Eq, Ord, Data, Typeable)
 
 data W = W { unW :: M.Map Name (L W) } deriving (Eq, Ord, Data, Typeable)
@@ -91,12 +92,16 @@ fixpoint f a | a == a' = a
              | otherwise = fixpoint f a'
   where a' = f a
 
-subst :: Name -> L a -> L a -> L a
+subst :: Show a => Name -> L a -> L a -> L a
+-- subst n e _ | trace ("s: " ++ show n ++ ", e: " ++ show e) False = undefined
 subst _ _ e'@(Cnst w _) = e'
-subst n e e'@(Var w n') | n == n'   = e
-                        | otherwise = e'
+subst n e e'@(Hold w n' _) | name n == name n'   = Hold w n' e
+                           | otherwise           = e'
+subst n e e'@(Var w n') | name n == name n'   = Hold w n' e
+                        | otherwise           = e'
 subst n e e'@(App w f x)  = App w (subst n e f) (map (subst n e) x)
-subst n e e'@(Lam w n' f) = Lam w n' (subst n e f)
+subst n e e'@(Lam w ns f) | name n `elem` map name ns = Lam w ns f -- don't substitute a bound var
+                          | otherwise                 = Lam w ns (subst n e f)
 subst n e e'@(Merge w xs) = Merge w (map (second $ subst n e) xs)
 
 {-
@@ -203,8 +208,9 @@ trace_tag str x = trace (str ++ show x) x
 
 normalize :: Show a => L a -> L a
 -- normalize e | trace (show e) False = undefined
-normalize (Cnst w c)  = (Cnst w c)
-normalize (Var w n)   = (Var w n)
+normalize (Cnst w c)   = Cnst w c
+normalize (Var w n)    = Var w n
+normalize (Hold w n e) = normalize e
 normalize (Merge w xs) = Merge w (map (second normalize) xs)
 normalize (App w (Lam w2 ns f) ms)
   |  length ns == length ms
@@ -349,6 +355,7 @@ instance Show Name where
 instance Show a => Show (L a) where
   show (Cnst a c)   = c
   show (Var a n)    = show n
+  show (Hold a n e) = "H{" ++ show n ++ ":" ++ show e ++ "}"
   show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
 
 #if 0
