@@ -83,13 +83,14 @@ sToP (P (Assign n e:ps)) = App w (Lam w [n] (sToP (P ps))) [sToE e]
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 
-{-
 unTag :: L a -> a
 unTag (Cnst w _)  = w
 unTag (Var w _)   = w
 unTag (Extrn w _) = w
 unTag (App w _ _) = w
 unTag (Lam w _ _) = w
+unTag (Merge w _) = w
+{-
 
 removeresobj :: W -> W
 removeresobj = W . M.delete "ρ" . M.delete "σ" . unW
@@ -273,20 +274,19 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 replaceret :: ([L a] -> L a -> L a) -> L a -> L a
 replaceret = go []
   where
-    go ctx f e@(App w (Lam w2 ns lam) xs)
-      | length ns == length xs = App w (Lam w2 ns (go (e:ctx) f lam)) (map (go (e:ctx) f) xs)
+    go ctx f (App w e@(Lam w2 ns lam) xs)
+      | length ns == length xs = App w (Lam w2 ns (go (e:ctx) f lam)) (map (go ctx f) xs)
       | otherwise              = error "replaceret: curried application"
     go ctx f e = f ctx e
 
 boundmerge :: L a -> L a
-boundmerge (Cnst w c)  = (Cnst w c)
-boundmerge (Var w n)   = (Var w n)
-{-
-boundmerge (Lam w (Bound n) f)  =  Lam w (Local n) (Merge w $ M.fromList [("ρ", boundmerge f), (n, Var w (Local n))])
-boundmerge (Lam w (Global n) f) =  Lam w (Local n) (Merge w $ M.fromList [("ρ", boundmerge f), (n, Var w (Local n))])
--}
-boundmerge (App w f xs) = App w (boundmerge f) (map boundmerge xs)
-boundmerge (Lam w n f)  = Lam w n (boundmerge f)
+boundmerge = replaceret f
+  where
+    f ctx e = Merge (unTag e) $ M.fromList $ ("ρ", e):map (\v -> (name v, Var (unTag e) v)) bounds
+      where bounds = concatMap (\(Lam _ ns _) -> filter isBound ns) ctx
+            isBound (Global _) = True
+            isBound (Bound  _) = True
+            isBound (Local  _) = False
 
 normalize :: Show a => L a -> L a
 normalize e | trace (show e) False = undefined
