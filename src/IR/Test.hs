@@ -210,7 +210,7 @@ jsdecl3 =
   \    a = 7; \
   \  } \
   \ c = 888; \
-  \ return a; \
+  \ return b; \
   \ "
 
 jsdecl4 =
