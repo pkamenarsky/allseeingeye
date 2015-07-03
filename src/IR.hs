@@ -275,14 +275,16 @@ replaceret :: ([L a] -> L a -> L a) -> L a -> L a
 replaceret = go []
   where
     go ctx f (App w e@(Lam w2 ns lam) xs)
-      | length ns == length xs = App w (Lam w2 ns (go (e:ctx) f lam)) (map (go ctx f) xs)
+      | length ns == length xs = App w (Lam w2 ns (go (e:ctx) f lam)) (map (go [] f) xs)
       | otherwise              = error "replaceret: curried application"
     go ctx f e = f ctx e
 
 boundmerge :: L a -> L a
 boundmerge = replaceret f
   where
-    f ctx e = Merge (unTag e) $ M.fromList $ ("ρ", e):map (\v -> (name v, Var (unTag e) v)) bounds
+    f ctx e
+      | null bounds = e
+      | otherwise   = Merge (unTag e) $ M.fromList $ ("ρ", e):map (\v -> (name v, Var (unTag e) v)) bounds
       where bounds = concatMap (\(Lam _ ns _) -> filter isBound ns) ctx
             isBound (Global _) = True
             isBound (Bound  _) = True
