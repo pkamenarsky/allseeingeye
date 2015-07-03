@@ -213,6 +213,14 @@ jsdecl3 =
   \ return a; \
   \ "
 
+jsdecl4 =
+  " var a = 555; \
+  \  { \
+  \    a = 7; \
+  \  } \
+  \ return a; \
+  \ "
+
 jsio =
   " \
   \ log(x) \

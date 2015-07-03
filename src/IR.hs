@@ -282,6 +282,7 @@ normalize (Merge w xs) = -- (\x -> trace ("R: " ++ show res) x) $
             , Just r <- M.lookup "ρ" $ M.map normalize xs2 = r
             | Just r <- M.lookup "ρ" $ M.map normalize xs  = normalize r
             | otherwise = error "merge: no ρ"
+normalize (App w (Lam w2 n f) (Merge w3 xs)) = normalize $ foldl (\a (n, e) -> App w2 (Lam w2 (Bound n) a) e) f (M.toList xs)
 normalize (App w (Merge w2 xs) (Merge w3 xs2))
   | Just f' <- M.lookup "ρ" xs
   , Just x' <- M.lookup "ρ" xs2 = Merge w2 (M.insert "ρ" (normalize $ App w f' x') $ M.union xs xs2)
@@ -311,11 +312,15 @@ varglobal = Var u . Global
 varlocal = Var u . Local
 varbound = Var u . Bound
 cnst = Cnst u
+merge = Merge u
+
+normalize2 (App w (Lam w2 n f) (Merge w3 xs)) = foldl (\a (n, e) -> App w2 (Lam w2 (Bound n) a) e) f (M.toList xs)
 
 rule1 = cnst "⤚" `app` varlocal "x" `app` varlocal "y"
 rule2 = lam (local"f") (lam (bound "x") (varlocal "f" `app` varlocal "x" `app` varlocal "y"))
 rule3 = rule2 `app` (lam (bound "a") (lam (local "b") (varglobal "*" `app` varlocal "a" `app` varlocal "b"))) `app` cnst "5"
 rule4 = lam (bound "a") (lam (bound "b") (varglobal "+" `app` varlocal "a" `app` varlocal "b") `app` cnst "6") `app` cnst "5"
+rule5 = lam (local "a") (varglobal "*" `app` varlocal "a") `app` merge (M.fromList [("x", varglobal "x"), ("y", varglobal "y")])
 
 {-
 -- 1. (λa → …) b          ≈ let a = b in …
