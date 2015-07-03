@@ -56,7 +56,8 @@ data L a = Cnst a String
          | Let a Name (L a) (L a)
          | Letlocal a Name (L a) (L a)
          | Rho a [Name] (L a)
-         | Merge a (M.Map String (L a))
+         -- | Merge a (M.Map String (L a))
+         | Merge a [(String, L a)]
          deriving (Eq, Ord, Data, Typeable)
 
 data W = W { unW :: M.Map Name (L W) } deriving (Eq, Ord, Data, Typeable)
@@ -184,7 +185,7 @@ subst n e e'@(Var w n') | n == n'   = e
                         | otherwise = e'
 subst n e e'@(App w f x)  = App w (subst n e f) (map (subst n e) x)
 subst n e e'@(Lam w n' f) = Lam w n' (subst n e f)
-subst n e e'@(Merge w xs) = Merge w (M.map (subst n e) xs)
+subst n e e'@(Merge w xs) = Merge w (map (second $ subst n e) xs)
 
 {-
 ↪ω k v
@@ -284,7 +285,7 @@ boundmerge = replaceret f
   where
     f ctx e
       | null bounds = e
-      | otherwise   = Merge (unTag e) $ M.fromList $ ("ρ", e):map (\v -> (name v, Var (unTag e) v)) bounds
+      | otherwise   = Merge (unTag e) $ ("ρ", e):map (\v -> (name v, Var (unTag e) v)) bounds
       where bounds = concatMap (\(Lam _ ns _) -> filter isBound ns) ctx
             isBound (Global _) = True
             isBound (Bound  _) = True
@@ -308,14 +309,27 @@ zip' (x:xs) (y:ys) = (Just x, Just y) :zip' xs ys
 zip' (x:xs) []     = (Just x, Nothing):zip' xs []
 zip' [] (y:ys)     = (Nothing, Just y):zip' [] ys
 
+trace_tag str x = trace (str ++ show x) x
+
 normalize :: Show a => L a -> L a
-normalize e | trace (show e) False = undefined
+-- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)  = (Cnst w c)
 normalize (Var w n)   = (Var w n)
-normalize (App w (Lam w2 ns f) ms) = App w (Lam w2 ns' f) xs'
-  where ns' = undefined
-        xs' = undefined
-  -- where ns' = map (\n -> name n ns
+normalize (Merge w xs) = Merge w (map (second normalize) xs)
+normalize (App w (Lam w2 ns f) ms)
+  |  length ns == length ms
+  && any isMerge (map normalize ms) = normalize $ trace_tag "app: " $ App w (Lam w2 ns' (normalize f)) xs'
+  where
+    (ns', xs') = unzip $ concatMap mkName $ zip ns ms
+
+    mkName (n, Merge w3 xs) = map mkName' $ zip' [n] xs
+      where mkName' (Just n , Just (s, e)) = (Local (name n), normalize e)
+            mkName' (Nothing, Just (s, e)) = (Local s       , normalize e)
+            mkName' (Just n , Nothing)     = error "mkName'"
+    mkName (n, e)           = [(Local (name n), normalize e)]
+
+    isMerge (Merge _ _) = True
+    isMerge _           = False
 {-
 normalize (App w (Lam w2 n f) (Merge w3 xs))
   = normalize $ foldl (\a (n, e) -> App w2 (Lam w2 (Bound n) a) e) f (replace_1st (name n) $ M.toList xs)
@@ -348,7 +362,6 @@ normalize (App w f x) = go (normalize f) (map normalize x)
                           | otherwise             = error "curried"
         go f' x'          = App w f' x'
 normalize (Lam w n f) = Lam w n (normalize f)
-normalize e = e
 
 u = undefined
 app = App u
@@ -363,6 +376,7 @@ varbound = Var u . Bound
 cnst = Cnst u
 merge = Merge u
 
+rule6 = lam [local "x"] (varlocal "a") `app` [merge [("ρ", cnst "666"), ("a", cnst "777")]]
 {-
 rule1 = cnst "⤚" `app` varlocal "x" `app` varlocal "y"
 rule2 = lam (local"f") (lam (bound "x") (varlocal "f" `app` varlocal "x" `app` varlocal "y"))
@@ -619,5 +633,5 @@ instance Show a => Show (L a) where
   show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
 -}
-  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") $ M.toList xs) ++ ")"
+  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") xs) ++ ")"
 #endif
