@@ -95,9 +95,11 @@ fixpoint f a | a == a' = a
 subst :: Show a => Name -> L a -> L a -> L a
 -- subst n e _ | trace ("s: " ++ show n ++ ", e: " ++ show e) False = undefined
 subst _ _ e'@(Cnst w _) = e'
+{-
 subst n e e'@(Hold w n' _) | name n == name n'   = Hold w n' e
                            | otherwise           = e'
-subst n e e'@(Var w n') | name n == name n'   = Hold w n' e
+-}
+subst n e e'@(Var w n') | name n == name n'   = e
                         | otherwise           = e'
 subst n e e'@(App w f x)  = App w (subst n e f) (map (subst n e) x)
 subst n e e'@(Lam w ns f) | name n `elem` map name ns = Lam w ns f -- don't substitute a bound var
@@ -210,13 +212,13 @@ normalize :: Show a => L a -> L a
 -- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
-normalize (Hold w n e) = normalize e
+normalize (Hold w n e) = Hold w n $ normalize e
 normalize (Merge w xs) = Merge w (map (second normalize) xs)
 normalize (App w (Lam w2 ns f) ms)
   |  length ns == length ms
-  && any isMerge (map normalize ms) = normalize $ trace_tag "app: " $ App w (Lam w2 ns' (normalize f)) xs'
+  && any isMerge (map normalize ms) = normalize {- $ trace_tag "app: " -} $ App w (Lam w2 ns' (normalize f)) xs'
   where
-    (ns', xs') = unzip $ concatMap mkName $ zip ns ms
+    (ns', xs') = unzip $ concatMap mkName $ zip ns $ map normalize ms
 
     mkName (n, Merge w3 xs) = map mkName' $ zip' [n] xs
       where mkName' (Just n , Just (s, e)) = (Local (name n), normalize e)

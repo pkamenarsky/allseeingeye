@@ -225,7 +225,7 @@ jsdecl4 =
   \      a = 5; \
   \    } \
   \  } \
-  \ return a; \
+  \ return a + b; \
   \ "
 
 jsio =
