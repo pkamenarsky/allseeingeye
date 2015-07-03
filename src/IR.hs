@@ -270,11 +270,13 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
 
 -- tracedbg str x = trace str
 
-replaceret :: L a -> (L a -> L a) -> L a
-replaceret (App w (Lam w2 ns lam) xs) f
-  | length ns == length xs = App w (Lam w2 ns (replaceret lam f)) xs
-  | otherwise              = error "replaceret: curried application"
-replaceret e f = f e
+replaceret :: ([L a] -> L a -> L a) -> L a -> L a
+replaceret = go []
+  where
+    go ctx f e@(App w (Lam w2 ns lam) xs)
+      | length ns == length xs = App w (Lam w2 ns (go (e:ctx) f lam)) (map (go (e:ctx) f) xs)
+      | otherwise              = error "replaceret: curried application"
+    go ctx f e = f ctx e
 
 boundmerge :: L a -> L a
 boundmerge (Cnst w c)  = (Cnst w c)
