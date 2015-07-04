@@ -174,29 +174,36 @@ convertE (CallExpr a f xs) = do
   xs' <- mapM convertE xs
   st  <- get
 
-  pushBack $ Assign (Local result) (Call f' xs')
+  pushBack $ Assign (Local result) (Call f' (xs' ++ [Ref $ Local world]))
 
   whenJust (getobj False f) $ \n -> do
     n' <- resolveVar n
     pushBack $ Assign n' (Call (Ref $ Global worldFn) [Const object, Ref $ Local world])
 
-  return $ (Call (Ref $ Global worldFn) [Const result, Ref $ Local world])
-{-
+  return (Ref $ Local result)
 convertE (FuncExpr a n xs ss) = do
   st <- get
   let st' = execState (mapM newDecl (map (\(Id _ n) -> n) xs)) (newBlock st)
-  let ss' = unSS (execState (mapM_ convertS ss) st') []
-      l   = Lambda (map (\(Id _ n) -> n) xs ++ [world]) (P $ ss' ++ [Return (Ref world)])
+      (xs', st'') = flip runState st' $ do
+        mapM_ convertS ss
+        mapM (\(Id _ n) -> resolveVar n) xs
+      ss' = unSS st'' $ []
+      isR (Return _) = True
+      isR _          = False
+      lastR | null ss'  = False
+            | otherwise = isR $ last ss'
+      l   = Lambda (xs' ++ [Local world]) (P $ ss' ++ if lastR then [] else [Return (Ref $ Local world)])
 
   exitBlock
 
   case n of
     Just (Id _ n) -> do
-      pushBack $ Assign n l
-      return $ Ref n
+      newDecl n
+      n' <- resolveVar n
+      pushBack $ Assign n' l
+      return l
     _ ->
       return l
--}
 
 convertS :: Statement a -> State Context ()
 convertS (BlockStmt a ss) = do

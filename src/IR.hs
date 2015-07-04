@@ -261,6 +261,10 @@ normalize (App w f x) = go (normalize f) (map normalize x)
         go f' x'          = App w f' x'
 normalize (Lam w n f) = Lam w n (normalize f)
 
+
+simplify :: Show a => L a -> L a
+simplify = normalize . boundmerge
+
 u = undefined
 app = App u
 lam = Lam u
