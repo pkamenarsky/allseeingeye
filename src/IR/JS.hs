@@ -169,6 +169,13 @@ convertE (ListExpr a es) = do
   let go e@(AssignExpr _ _ _ _) = convertE e
       go e                      = convertE (AssignExpr a OpAssign (LVar a "@") e)
   last <$> mapM go es
+{-
+  o.f(x)
+≈ ρ, σ, ω = f(o, x, ω)
+
+  function f(x)
+≈ function f(this, x, ω)
+-}
 convertE (CallExpr a f xs) = do
   f'  <- convertE f
   xs' <- mapM convertE xs
