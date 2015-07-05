@@ -212,7 +212,7 @@ zip' [] (y:ys)     = (Nothing, Just y):zip' [] ys
 trace_tag str x = trace (str ++ show x) x
 
 normalize :: Show a => L a -> L a
--- normalize e | trace (show e) False = undefined
+normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e

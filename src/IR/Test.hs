@@ -132,8 +132,8 @@ js2 =
   \ var a = 1; \
   \ var b = 2; \
   \ var f = function(x, y) { b = 6; return x + y; }; \
-  \ f(a, b); \
-  \ return b; \
+  \ a = f(a, b); \
+  \ return b + a; \
   \ }"
 
 js3 =
