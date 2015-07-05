@@ -19,29 +19,30 @@ import           Language.ECMAScript3.Syntax.Annotations
 
 import           IR
 
-type VarIndex = [Int]
+type VarIndex = (String, [Int])
 
 data Context = Context
   { unSS      :: [S] -> [S]
   , unWorld   :: M.Map String VarIndex
-  , unIndex   :: VarIndex
+  , unIndex   :: [Int]
   , unArgs    :: S.Set String
   , unAssign  :: S.Set Name
   , unLocals  :: S.Set String
   , unF       :: M.Map String E
   }
 
-newDecl :: String -> State Context [Int]
+newDecl :: String -> State Context VarIndex
 newDecl decl = do
   st <- get
-  put $ st { unWorld  = M.insert decl (unIndex st) (unWorld st)
+  put $ st { unWorld  = M.insert decl (decl, unIndex st) (unWorld st)
            , unIndex  = init (unIndex st) ++ [last (unIndex st) + 1]
            , unLocals = S.insert decl (unLocals st)
            }
-  return $ unIndex st
+  return (decl, unIndex st)
 
-showDecl :: [Int] -> String
-showDecl decl = "⟨" ++ intercalate " " (map show decl) ++ "⟩"
+showDecl :: VarIndex -> String
+-- showDecl (decl, i) = decl ++ "⟨" ++ intercalate " " (map show i) ++ "⟩"
+showDecl (decl, i) = decl
 
 newBlock :: Context -> Context
 newBlock st =

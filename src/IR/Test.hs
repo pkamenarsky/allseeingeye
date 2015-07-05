@@ -128,10 +128,12 @@ js1 =
 
   -- \ a = b = ++h; \
 js2 =
-  "var f = function(x, y) { return x + y; }; \
-  \ var a = 5; \
-  \ var b = 5; \
-  \ return f(a, b); \
+  " \
+  \ var a = 1; \
+  \ var b = 2; \
+  \ var f = function(x, y) { b = 6; return x + y; }; \
+  \ f(a, b); \
+  \ return b; \
   \ }"
 
 js3 =

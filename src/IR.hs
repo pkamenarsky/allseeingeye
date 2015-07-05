@@ -175,12 +175,15 @@ replaceret = go []
     go ctx f (App w e@(Lam w2 ns lam) xs)
       | length ns == length xs = App w (Lam w2 ns (go (e:ctx) f lam)) (map (go [] f) xs)
       | otherwise              = error "replaceret: curried application"
-    go ctx f e = f ctx e
+    go ctx f e@(Lam w ns lam)  = f ctx (Lam w ns (go [] f lam))
+    go ctx f e@(App w app xs)  = f ctx (App w (go [] f app) (map (go [] f) xs))
+    go ctx f e                 = f ctx e
 
-boundmerge :: L a -> L a
+boundmerge :: Show a => L a -> L a
 boundmerge = replaceret f
   where
     f ctx e
+      -- | trace ("\nm: " ++ show e) False = undefined
       | null bounds = e
       | otherwise   = Merge (unTag e) $ ("ρ", e):map (\v -> (name v, Var (unTag e) v)) bounds
       where bounds = concatMap (\(Lam _ ns _) -> filter isBound ns) ctx
@@ -216,7 +219,7 @@ normalize (Hold w n e) = Hold w n $ normalize e
 normalize (Merge w xs) = Merge w (map (second normalize) xs)
 normalize (App w (Lam w2 ns f) ms)
   |  length ns == length ms
-  && any isMerge (map normalize ms) = normalize {- $ trace_tag "app: " -} $ App w (Lam w2 ns' (normalize f)) xs'
+  && any isMerge (map normalize ms) = normalize $ trace_tag "app: " $ App w (Lam w2 ns' (normalize f)) xs'
   where
     (ns', xs') = unzip $ concatMap mkName $ zip ns $ map normalize ms
 
