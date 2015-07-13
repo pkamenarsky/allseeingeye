@@ -266,39 +266,28 @@ trace_tag str x = trace (str ++ show x) x
 deleteElem :: Eq k => k -> [(k, v)] -> [(k, v)]
 deleteElem k = filter ((/= k) . fst)
 
+unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
+unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
+
 normalize :: Show a => L a -> L a
 normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
-normalize (Merge w xs) = Merge w (map (second normalize) xs)
 normalize (App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
     = foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) (normalize v))
             (App w (Lam w2 n (normalize f)) (normalize r))
-            (deleteElem "ρ" ms)
-{-
-normalize (Merge w xs) = -- (\x -> trace ("R: " ++ show res) x) $
-  Merge w (M.insert "ρ" res $ M.unions $ map go $ reverse $ M.toList xs)
-  where go (_, Merge w xs) = {- trace ("xs: " ++ show xs) $ -} M.delete "ρ" $ M.map normalize xs
-        go (n, e)          = {- trace ("x: " ++ show e) $ -} M.singleton n (normalize e)
-
-        res | Just (Merge w2 xs2) <- M.lookup "ρ" $ M.map normalize xs
-            , Just r <- M.lookup "ρ" $ M.map normalize xs2 = r
-            | Just r <- M.lookup "ρ" $ M.map normalize xs  = normalize r
-            | otherwise = error "merge: no ρ"
-normalize (App w (Merge w2 xs) (Merge w3 xs2))
-  | Just f' <- M.lookup "ρ" xs
-  , Just x' <- M.lookup "ρ" xs2 = Merge w2 (M.insert "ρ" (normalize $ App w f' x') $ M.union xs xs2)
-  | otherwise                   = error "app: no ρ/ρ"
-normalize (App w f (Merge w2 xs))
-  | Just x' <- M.lookup "ρ" xs = Merge w2 (M.insert "ρ" (normalize $ App w f x') xs)
-  | otherwise                  = error "app: no f/ρ"
-normalize (App w (Merge w2 xs) x)
-  | Just f' <- M.lookup "ρ" xs = Merge w2 (M.insert "ρ" (normalize $ App w f' x) xs)
-  | otherwise                  = error "app: no ρ"
-normalize (Lam w (Bound n) f) =  Lam w (Local n) (normalize (Merge w $ M.fromList [("ρ", normalize f), (n, Var w (Local n))]))
-normalize (Lam w (Global n) f) =  Lam w (Local n) (normalize (Merge w $ M.fromList [("ρ", normalize f), (n, Var w (Local n))]))
--}
+            ms
+-- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
+normalize (Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
+  = normalize $ Merge w (("ρ", r):unionElems ms ms2)
+-- (⤚ x y) u                 ≈ ⤚ (x u) y
+normalize (App w (Merge w2 (("ρ", r):ms)) x)
+  = normalize $ Merge w2 (("ρ", App w r x):ms)
+-- u (⤚ x y)                 ≈ ⤚ (u x) y
+normalize (App w f (Merge w2 (("ρ", r):ms)))
+  = normalize $ Merge w2 (("ρ", App w f r):ms)
+normalize (Merge w xs) = Merge w (map (second normalize) xs)
 {-
 -- multiarg
 normalize (App w f x) = go (normalize f) (map normalize x)
