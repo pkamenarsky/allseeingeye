@@ -167,6 +167,20 @@ let[C] x = a in … ≈ ((λx → …) a)[x:C]
  ≈ (λX → ⤚5 b<Y>) a
  ≈ ⤚5 b<Y> a<X>
 
+---
+
+(λx → ⤚ (λu → …) y)
+(λx → ⤚ (λu → ⤚ u v) y)
+(λx → ⤚ x y) (⤚ u v)
+
+=== ⤚ RULES ===
+(⤚ x y) u                 ≈ ⤚ (x u) y
+u (⤚ x y)                 ≈ ⤚ (u x) y
+⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
+===============
+
+(⤚ x y) (⤚ u v)           ≈ ⤚ (x (⤚ u v)) y ≈ ⤚ (⤚ (x u) v) y ≈ ⤚ (x u) v y
+
 -}
 
 replaceret :: ([L a] -> L a -> L a) -> L a -> L a
