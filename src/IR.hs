@@ -270,7 +270,10 @@ normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
 normalize (Merge w xs) = Merge w (M.map normalize xs)
 normalize (App w (Lam w2 n f) (Merge w3 m))
-  | Just r <- M.lookup "ρ" m = App w (Lam w2 n f) r
+  | Just r <- M.lookup "ρ" m
+    = foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
+            (App w (Lam w2 n f) r)
+            (M.toList $ M.delete "ρ" m)
   | otherwise = error "merge: no ρ"
 {-
 normalize (App w (Lam w2 ns f) ms)
