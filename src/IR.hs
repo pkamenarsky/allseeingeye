@@ -129,10 +129,11 @@ subst n e e'@(Merge w xs) = Merge w (map (second $ subst n e) xs)
 
 subst :: Name -> L a -> L a -> L a
 subst _ _ e'@(Cnst _ _) = e'
-subst n e e'@(Var _ n') | n == n'   = e
-                        | otherwise = e'
+subst n e e'@(Var _ n') | name n == name n' = e
+                        | otherwise         = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
-subst n e e'@(Lam w n' f)  = Lam w n' (subst n e f)
+subst n e e'@(Lam w n' f) | name n /= name n'  = Lam w n' (subst n e f)
+                          | otherwise          = Lam w n' f
 subst n e e'@(Merge w xs)  = Merge w (map (second (subst n e)) xs)
 
 {-
@@ -241,6 +242,7 @@ boundmerge (Cnst w c) = Cnst w c
 boundmerge (Var w n) = Var w n
 boundmerge (Lam w (Bound n) x)
   = Lam w (Local n) (Merge w [("ρ", boundmerge x), (n, Var w (Local n))])
+boundmerge (Lam w n x) = Lam w n (boundmerge x)
 boundmerge (App w f x) = App w (boundmerge f) (boundmerge x)
 
 {-
@@ -270,7 +272,7 @@ unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
 unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 
 normalize :: Show a => L a -> L a
-normalize e | trace (show e) False = undefined
+-- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
