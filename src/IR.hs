@@ -236,6 +236,13 @@ boundmerge = replaceret f
             isBound (Local  _) = False
 -}
 
+boundmerge :: Show a => L a -> L a
+boundmerge (Cnst w c) = Cnst w c
+boundmerge (Var w n) = Var w n
+boundmerge (Lam w (Bound n) x)
+  = Lam w (Local n) (Merge w (M.fromList [("ρ", boundmerge x), (n, Var w (Local n))]))
+boundmerge (App w f x) = App w (boundmerge f) (boundmerge x)
+
 {-
   (λf → ⤚ ρ<f 5> c d) (λx → ⤚ ρ<x> a b)
 ≈ ⤚ ρ<⤚ ρ<x> a b> c d
@@ -262,6 +269,9 @@ normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
 normalize (Merge w xs) = Merge w (M.map normalize xs)
+normalize (App w (Lam w2 n f) (Merge w3 m))
+  | Just r <- M.lookup "ρ" m = App w (Lam w2 n f) r
+  | otherwise = error "merge: no ρ"
 {-
 normalize (App w (Lam w2 ns f) ms)
   |  length ns == length ms
