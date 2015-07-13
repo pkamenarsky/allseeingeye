@@ -134,9 +134,10 @@ subst n e e'@(Hold w n' h) | name n == name n' = Hold w n' e
 subst n e e'@(Var w n') | name n == name n' = Hold w n' e
                         | otherwise         = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
-subst n e e'@(Lam w n' f) | name n /= name n'  = Lam w n' (subst n e f)
-                          | otherwise          = Lam w n' f
-subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r):ms)
+subst n e e'@(Lam w n' f) | name n == name n'  = Lam w n' f
+                          | otherwise          = Lam w n' (subst n e f)
+-- subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r):ms)
+subst n e e'@(Merge w ms)  = Merge w (map (second (subst n e)) ms)
 
 {-
 ρ = f …
@@ -274,7 +275,7 @@ unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
 unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 
 trace_n :: Show a => String -> L a -> L a -> L a
-trace_n rule before after = trace (rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
 
 normalize :: Show a => L a -> L a
 -- normalize e | trace (show e) False = undefined
@@ -303,10 +304,10 @@ normalize (App w f x) = go (normalize f) (map normalize x)
                           | otherwise             = error "curried"
         go f' x'          = App w f' x'
 -}
-normalize e'@(App w f x) = trace_n "app" e' $ go (normalize f) (normalize x)
-  where go (Lam _ n e) x' = normalize $ trace_n "subst" e' $ subst n x' e
-        go f' x'          = App w f' x'
-normalize (Lam w n f) = Lam w n (normalize f)
+normalize e'@(App w f x) = go (normalize f) (normalize x)
+  where go (Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e' $ subst n x' e
+        go f' x'          = trace_n "app" e' $ App w f' x'
+normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 
 simplify :: Show a => L a -> L a
 simplify = undefined
