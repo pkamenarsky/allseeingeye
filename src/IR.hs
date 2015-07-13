@@ -52,8 +52,8 @@ data L a = Cnst a String
          | Let a Name (L a) (L a)
          | Letlocal a Name (L a) (L a)
          | Rho a [Name] (L a)
-         | Merge a (M.Map String (L a))
-         -- | Merge a [(String, L a)]
+         -- | Merge a (M.Map String (L a))
+         | Merge a [(String, L a)]
          | Hold a Name (L a)
          deriving (Eq, Ord, Data, Typeable)
 
@@ -133,7 +133,7 @@ subst n e e'@(Var _ n') | n == n'   = e
                         | otherwise = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f)  = Lam w n' (subst n e f)
-subst n e e'@(Merge w xs)  = Merge w (M.map (subst n e) xs)
+subst n e e'@(Merge w xs)  = Merge w (map (second (subst n e)) xs)
 
 {-
 ρ = f …
@@ -240,7 +240,7 @@ boundmerge :: Show a => L a -> L a
 boundmerge (Cnst w c) = Cnst w c
 boundmerge (Var w n) = Var w n
 boundmerge (Lam w (Bound n) x)
-  = Lam w (Local n) (Merge w (M.fromList [("ρ", boundmerge x), (n, Var w (Local n))]))
+  = Lam w (Local n) (Merge w [("ρ", boundmerge x), (n, Var w (Local n))])
 boundmerge (App w f x) = App w (boundmerge f) (boundmerge x)
 
 {-
@@ -263,39 +263,20 @@ zip' [] (y:ys)     = (Nothing, Just y):zip' [] ys
 
 trace_tag str x = trace (str ++ show x) x
 
+deleteElem :: Eq k => k -> [(k, v)] -> [(k, v)]
+deleteElem k = filter ((/= k) . fst)
+
 normalize :: Show a => L a -> L a
 normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
-normalize (Merge w xs) = Merge w (M.map normalize xs)
-normalize (App w (Lam w2 n f) (Merge w3 m))
-  | Just r <- M.lookup "ρ" m
-    = foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
-            (App w (Lam w2 n f) r)
-            (M.toList $ M.delete "ρ" m)
-  | otherwise = error "merge: no ρ"
+normalize (Merge w xs) = Merge w (map (second normalize) xs)
+normalize (App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
+    = foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) (normalize v))
+            (App w (Lam w2 n (normalize f)) (normalize r))
+            (deleteElem "ρ" ms)
 {-
-normalize (App w (Lam w2 ns f) ms)
-  |  length ns == length ms
-  && any isMerge (map normalize ms) = normalize $ trace_tag "app: " $ App w (Lam w2 ns' (normalize f)) xs'
-  where
-    (ns', xs') = unzip $ concatMap mkName $ zip ns $ map normalize ms
-
-    mkName (n, Merge w3 xs) = map mkName' $ zip' [n] xs
-      where mkName' (Just n , Just (s, e)) = (Local (name n), normalize e)
-            mkName' (Nothing, Just (s, e)) = (Local s       , normalize e)
-            mkName' (Just n , Nothing)     = error "mkName'"
-    mkName (n, e)           = [(Local (name n), normalize e)]
-
-    isMerge (Merge _ _) = True
-    isMerge _           = False
--}
-{-
-normalize (App w (Lam w2 n f) (Merge w3 xs))
-  = normalize $ foldl (\a (n, e) -> App w2 (Lam w2 (Bound n) a) e) f (replace_1st (name n) $ M.toList xs)
-  where replace_1st _ [] = []
-        replace_1st n' ((n,x):xs) = (n',x):xs
 normalize (Merge w xs) = -- (\x -> trace ("R: " ++ show res) x) $
   Merge w (M.insert "ρ" res $ M.unions $ map go $ reverse $ M.toList xs)
   where go (_, Merge w xs) = {- trace ("xs: " ++ show xs) $ -} M.delete "ρ" $ M.map normalize xs
@@ -448,5 +429,5 @@ instance Show a => Show (L a) where
   show (App a f x@(Lam _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
   show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
-  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") $ M.toList xs) ++ ")"
+  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") xs) ++ ")"
 #endif
