@@ -45,13 +45,15 @@ data P = P [S] deriving (Eq, Ord, Data, Typeable)
 data L a = Cnst a String
          | Var a Name
          | Extrn a Name
-         | App a (L a) [L a]
-         | Lam a [Name] (L a)
+         -- | App a (L a) [L a]
+         | App a (L a) (L a)
+         -- | Lam a [Name] (L a)
+         | Lam a Name (L a)
          | Let a Name (L a) (L a)
          | Letlocal a Name (L a) (L a)
          | Rho a [Name] (L a)
-         -- | Merge a (M.Map String (L a))
-         | Merge a [(String, L a)]
+         | Merge a (M.Map String (L a))
+         -- | Merge a [(String, L a)]
          | Hold a Name (L a)
          deriving (Eq, Ord, Data, Typeable)
 
@@ -66,6 +68,8 @@ result = "ρ"
 object = "σ"
 world = "ω"
 
+{-
+-- multiarg
 sToE :: E -> L W
 sToE (Const c)     = Cnst w c
 sToE (Ref r)       = Var w r
@@ -76,6 +80,20 @@ sToP :: P -> L W
 sToP (P [])              = error "no return"
 sToP (P (Decl n e:ps))   = App w (Lam w [n] (sToP (P ps))) [sToE e]
 sToP (P (Assign n e:ps)) = App w (Lam w [n] (sToP (P ps))) [sToE e]
+sToP (P (Return e:_))    = sToE e
+sToP (P (Ctrl e p:_))    = error "ctrl"
+-}
+
+sToE :: E -> L W
+sToE (Const c)     = Cnst w c
+sToE (Ref r)       = Var w r
+sToE (Call f xs)   = foldl (App w) (sToE f) (map sToE xs)
+sToE (Lambda ns p) = foldr (Lam w) (sToP p) ns
+
+sToP :: P -> L W
+sToP (P [])              = error "no return"
+sToP (P (Decl n e:ps))   = App w (Lam w n (sToP (P ps))) (sToE e)
+sToP (P (Assign n e:ps)) = App w (Lam w n (sToP (P ps))) (sToE e)
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 
@@ -92,6 +110,8 @@ fixpoint f a | a == a' = a
              | otherwise = fixpoint f a'
   where a' = f a
 
+{-
+-- multiarg
 subst :: Show a => Name -> L a -> L a -> L a
 -- subst n e _ | trace ("s: " ++ show n ++ ", e: " ++ show e) False = undefined
 subst _ _ e'@(Cnst w _) = e'
@@ -105,6 +125,15 @@ subst n e e'@(App w f x)  = App w (subst n e f) (map (subst n e) x)
 subst n e e'@(Lam w ns f) | name n `elem` map name ns = Lam w ns f -- don't substitute a bound var
                           | otherwise                 = Lam w ns (subst n e f)
 subst n e e'@(Merge w xs) = Merge w (map (second $ subst n e) xs)
+-}
+
+subst :: Name -> L a -> L a -> L a
+subst _ _ e'@(Cnst _ _) = e'
+subst n e e'@(Var _ n') | n == n'   = e
+                        | otherwise = e'
+subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
+subst n e e'@(Lam w n' f)  = Lam w n' (subst n e f)
+subst n e e'@(Merge w xs)  = Merge w (M.map (subst n e) xs)
 
 {-
 ρ = f …
@@ -183,6 +212,7 @@ u (⤚ x y)                 ≈ ⤚ (u x) y
 
 -}
 
+{-
 replaceret :: ([L a] -> L a -> L a) -> L a -> L a
 replaceret = go []
   where
@@ -204,6 +234,7 @@ boundmerge = replaceret f
             isBound (Global _) = True
             isBound (Bound  _) = True
             isBound (Local  _) = False
+-}
 
 {-
   (λf → ⤚ ρ<f 5> c d) (λx → ⤚ ρ<x> a b)
@@ -230,7 +261,8 @@ normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
-normalize (Merge w xs) = Merge w (map (second normalize) xs)
+normalize (Merge w xs) = Merge w (M.map normalize xs)
+{-
 normalize (App w (Lam w2 ns f) ms)
   |  length ns == length ms
   && any isMerge (map normalize ms) = normalize $ trace_tag "app: " $ App w (Lam w2 ns' (normalize f)) xs'
@@ -245,6 +277,7 @@ normalize (App w (Lam w2 ns f) ms)
 
     isMerge (Merge _ _) = True
     isMerge _           = False
+-}
 {-
 normalize (App w (Lam w2 n f) (Merge w3 xs))
   = normalize $ foldl (\a (n, e) -> App w2 (Lam w2 (Bound n) a) e) f (replace_1st (name n) $ M.toList xs)
@@ -272,15 +305,22 @@ normalize (App w (Merge w2 xs) x)
 normalize (Lam w (Bound n) f) =  Lam w (Local n) (normalize (Merge w $ M.fromList [("ρ", normalize f), (n, Var w (Local n))]))
 normalize (Lam w (Global n) f) =  Lam w (Local n) (normalize (Merge w $ M.fromList [("ρ", normalize f), (n, Var w (Local n))]))
 -}
+{-
+-- multiarg
 normalize (App w f x) = go (normalize f) (map normalize x)
   where go (Lam _ n e) x' | length n == length x' = normalize $ foldr (uncurry subst) e (zip n x')
                           | otherwise             = error "curried"
+        go f' x'          = App w f' x'
+-}
+normalize (App w f x) = go (normalize f) (normalize x)
+  where go (Lam _ n e) x' = normalize $ subst n x' e
         go f' x'          = App w f' x'
 normalize (Lam w n f) = Lam w n (normalize f)
 
 
 simplify :: Show a => L a -> L a
-simplify = normalize . boundmerge
+simplify = undefined
+-- simplify = normalize . boundmerge
 
 u = undefined
 app = App u
@@ -295,7 +335,7 @@ varbound = Var u . Bound
 cnst = Cnst u
 merge = Merge u
 
-rule6 = lam [local "x"] (varlocal "a") `app` [merge [("ρ", cnst "666"), ("a", cnst "777")]]
+-- rule6 = lam [local "x"] (varlocal "a") `app` [merge [("ρ", cnst "666"), ("a", cnst "777")]]
 {-
 rule1 = cnst "⤚" `app` varlocal "x" `app` varlocal "y"
 rule2 = lam (local"f") (lam (bound "x") (varlocal "f" `app` varlocal "x" `app` varlocal "y"))
@@ -385,15 +425,15 @@ instance Show a => Show (L a) where
   show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ show a ++ ")"
   show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ show a ++ ")"
 #else
+{-
   show (App a f x)                      = "(" ++ show f ++ " " ++ intercalate " " (map show x) ++ ")"
   show (Lam a n f)                      = "(λ" ++ intercalate " " (map show n) ++ " → " ++ show f ++ ")"
-{-
+-}
   show (App a f@(Lam _ _ _) x@(App _ _ _))  = "(" ++ show f ++ ") (" ++ show x ++ ")"
   show (App a f x@(App _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
   show (App a f@(Lam _ _ _) x)              = "(" ++ show f ++ ") " ++ show x ++ ""
   show (App a f x@(Lam _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
   show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
--}
-  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") xs) ++ ")"
+  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") $ M.toList xs) ++ ")"
 #endif
