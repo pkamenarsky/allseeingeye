@@ -147,6 +147,14 @@ js3 =
   \ return getf(f).add(a, b); \
   \ }"
 
+js4 =
+  " \
+  \ var a = 1; \
+  \ var f = function(x) { a = 6; return x; }; \
+  \ var c = f(4); \
+  \ return a; \
+  \ }"
+
 jsmap =
   "{ \
   \ var map = function(f, array) { \

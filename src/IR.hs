@@ -129,12 +129,14 @@ subst n e e'@(Merge w xs) = Merge w (map (second $ subst n e) xs)
 
 subst :: Name -> L a -> L a -> L a
 subst _ _ e'@(Cnst _ _) = e'
-subst n e e'@(Var _ n') | name n == name n' = e
+subst n e e'@(Hold w n' h) | name n == name n' = Hold w n' e
+                           | otherwise         = Hold w n' (subst n e h)
+subst n e e'@(Var w n') | name n == name n' = Hold w n' e
                         | otherwise         = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | name n /= name n'  = Lam w n' (subst n e f)
                           | otherwise          = Lam w n' f
-subst n e e'@(Merge w xs)  = Merge w (map (second (subst n e)) xs)
+subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r):ms)
 
 {-
 ρ = f …
@@ -301,11 +303,10 @@ normalize (App w f x) = go (normalize f) (map normalize x)
                           | otherwise             = error "curried"
         go f' x'          = App w f' x'
 -}
-normalize e@(App w f x) = trace_n "app" e $ go (normalize f) (normalize x)
-  where go (Lam _ n e) x' = normalize $ subst n x' e
+normalize e'@(App w f x) = trace_n "app" e' $ go (normalize f) (normalize x)
+  where go (Lam _ n e) x' = normalize $ trace_n "subst" e' $ subst n x' e
         go f' x'          = App w f' x'
 normalize (Lam w n f) = Lam w n (normalize f)
-
 
 simplify :: Show a => L a -> L a
 simplify = undefined
@@ -408,6 +409,7 @@ instance Show a => Show (L a) where
   show (Cnst a c)   = c
   show (Var a n)    = show n
   show (Hold a n e) = "H{" ++ show n ++ ":" ++ show e ++ "}"
+  -- show (Hold a n e) = show e
   show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
 
 #if 0
