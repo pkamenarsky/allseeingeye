@@ -271,24 +271,28 @@ deleteElem k = filter ((/= k) . fst)
 unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
 unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 
+trace_n :: Show a => String -> L a -> L a -> L a
+trace_n rule before after = trace (rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+
 normalize :: Show a => L a -> L a
 -- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
-normalize (App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
-    = normalize $ foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
+normalize e@(App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
+    = normalize $ trace_n "lam merge" e
+                $ foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
                         (App w (Lam w2 n f) r)
                         ms
 -- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
-normalize (Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
-  = normalize $ Merge w (("ρ", r):unionElems ms ms2)
+normalize e@(Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
+  = normalize $ trace_n "nested merge" e $ Merge w (("ρ", r):unionElems ms ms2)
 -- (⤚ x y) u                 ≈ ⤚ (x u) y
-normalize (App w (Merge w2 (("ρ", r):ms)) x)
-  = normalize $ Merge w2 (("ρ", App w r x):ms)
+normalize e@(App w (Merge w2 (("ρ", r):ms)) x)
+  = normalize $ trace_n "merge app" e $ Merge w2 (("ρ", App w r x):ms)
 -- u (⤚ x y)                 ≈ ⤚ (u x) y
-normalize (App w f (Merge w2 (("ρ", r):ms)))
-  = normalize $ Merge w2 (("ρ", App w f r):ms)
+normalize e@(App w f (Merge w2 (("ρ", r):ms)))
+  = normalize $ trace_n "app merge" e $ Merge w2 (("ρ", App w f r):ms)
 normalize (Merge w xs) = Merge w (map (second normalize) xs)
 {-
 -- multiarg
@@ -297,7 +301,7 @@ normalize (App w f x) = go (normalize f) (map normalize x)
                           | otherwise             = error "curried"
         go f' x'          = App w f' x'
 -}
-normalize (App w f x) = go (normalize f) (normalize x)
+normalize e@(App w f x) = trace_n "app" e $ go (normalize f) (normalize x)
   where go (Lam _ n e) x' = normalize $ subst n x' e
         go f' x'          = App w f' x'
 normalize (Lam w n f) = Lam w n (normalize f)
