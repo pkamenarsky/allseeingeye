@@ -277,9 +277,9 @@ normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
 normalize (App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
-    = foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) (normalize v))
-            (App w (Lam w2 n (normalize f)) (normalize r))
-            ms
+    = normalize $ foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
+                        (App w (Lam w2 n f) r)
+                        ms
 -- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
 normalize (Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
   = normalize $ Merge w (("ρ", r):unionElems ms ms2)
