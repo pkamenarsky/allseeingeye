@@ -165,6 +165,7 @@ subst n e e'@(Lam w n' f) | name n == name n'  = Lam w n' f
 subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r): map f ms)
   -- don't subst twice
   where f (k, Var w x) = (k, subst n e (Var w x))
+  -- where f (k, e') = (k, subst n e e')
         f e            = e
 
 {-
@@ -337,11 +338,14 @@ normalize e@(App w (Merge w2 (("ρ", r):ms)) x)
 -- u (⤚ x y)                 ≈ ⤚ (u x) y
 normalize e@(App w f (Merge w2 (("ρ", r):ms)))
   = normalize $ trace_n "app merge" e $ Merge w2 (("ρ", App w f r):ms)
+-- ??
+-- normalize e'@(Merge w (("ρ", Let w2 k v e):xs)) = normalize $ trace_n "merge out" e' $ Let w2 k v (Merge w (("ρ", e):xs))
 normalize (Merge w xs) = Merge w (map (second normalize) xs)
 -- normalize e'@(Let w k v e) | name k == "ρ" = normalize $ Let w (Local "ρ") (normalize v) e
 normalize e'@(Let w k v e) = go (normalize v)
-  where go v'@(Merge w2 (("ρ", r):ms))
-          = normalize $ trace_n "let merge" e'
+  where -- go v' | name k == "ω" = normalize $ trace_n "let ω" e' $ subst_dbg k v' e
+        go v'@(Merge w2 (("ρ", r):ms))
+          = normalize $ trace_n ("let merge{" ++ show v' ++ "}") e'
                       $ foldl (\cnt (n, v) -> Let w (Local n) v cnt)
                               (Let w k r e)
                               ms
