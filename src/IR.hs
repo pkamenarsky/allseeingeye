@@ -59,7 +59,7 @@ data L a = Cnst a String
 
 data W = W { unW :: M.Map Name (L W) } deriving (Eq, Ord, Data, Typeable)
 
-w = W M.empty
+w = ""
 
 mergeFn = "⤚"
 worldFn = "↖ω"
@@ -84,26 +84,38 @@ sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 -}
 
-sToE :: E -> L W
+sToE :: E -> L String
 sToE (Const c)     = Cnst w c
 sToE (Ref r)       = Var w r
 sToE (Call f xs)   = foldl (App w) (sToE f) (map sToE xs)
 sToE (Lambda ns p) = foldr (Lam w) (sToP p) ns
 
-sToP :: P -> L W
+sToP :: P -> L String
 sToP (P [])              = error "no return"
-sToP (P (Decl n e:ps))   = App w (Lam w n (sToP (P ps))) (sToE e)
-sToP (P (Assign n e:ps)) = App w (Lam w n (sToP (P ps))) (sToE e)
+-- sToP (P (Decl n e:ps))   = App w (Lam w n (sToP (P ps))) (sToE e)
+-- sToP (P (Assign n e:ps)) = App w (Lam w n (sToP (P ps))) (sToE e)
+sToP (P (Decl n e:ps))   = Let w n (sToE e) (sToP (P ps))
+sToP (P (Assign n e:ps)) = Let w n (sToE e) (sToP (P ps))
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 
 unTag :: L a -> a
-unTag (Cnst w _)  = w
-unTag (Var w _)   = w
-unTag (Extrn w _) = w
-unTag (App w _ _) = w
-unTag (Lam w _ _) = w
-unTag (Merge w _) = w
+unTag (Cnst w _)    = w
+unTag (Var w _)     = w
+unTag (Extrn w _)   = w
+unTag (App w _ _)   = w
+unTag (Let w _ _ _) = w
+unTag (Lam w _ _)   = w
+unTag (Merge w _)   = w
+
+tag :: a -> L a -> L a
+tag w (Cnst _ c)    = Cnst w c
+tag w (Var _ v)     = Var w v
+tag w (Extrn _ v)   = Extrn w v
+tag w (App _ f x)   = App w f x
+tag w (Let _ k v e) = Let w k v e
+tag w (Lam _ n f)   = Lam w n f
+tag w (Merge _ ms)  = Merge w ms
 
 fixpoint :: Eq a => (a -> a) -> a -> a
 fixpoint f a | a == a' = a
@@ -127,21 +139,30 @@ subst n e e'@(Lam w ns f) | name n `elem` map name ns = Lam w ns f -- don't subs
 subst n e e'@(Merge w xs) = Merge w (map (second $ subst n e) xs)
 -}
 
-subst_dbg :: Show a => Name -> L a -> L a -> L a
+-- subst_dbg :: Show a => Name -> L a -> L a -> L a
+subst_dbg :: Name -> L String -> L String -> L String
 subst_dbg n e e' = trace_n ("☀☀ [" ++ show n ++ "=" ++ show e ++ "]") e' $ subst n e e'
 
-subst :: Name -> L a -> L a -> L a
+-- subst :: Name -> L a -> L a -> L a
+subst :: Name -> L String -> L String -> L String
+subst n e e' | name n == unTag e' = e
 subst _ _ e'@(Cnst _ _) = e'
 subst n e e'@(Hold w n' h) | name n == name n' = Hold w n' e
                            | otherwise         = Hold w n' (subst n e h)
 -- subst n e e'@(Var w n') | name n == name n' = Hold w n' e
-subst n e e'@(Var w n') | name n == name n' = e
+subst n e e'@(Var w n') | name n == name n' = tag (name n) e
                         | otherwise         = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
+subst n e e'@(Let w n' k v) | name n == name n' = Let w n' k v
+                            | otherwise         = Let w n' k (subst n e v)
 subst n e e'@(Lam w n' f) | name n == name n'  = Lam w n' f
                           | otherwise          = Lam w n' (subst n e f)
 -- subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r):ms)
-subst n e e'@(Merge w ms)  = Merge w (map (second (subst n e)) ms)
+-- subst n e e'@(Merge w ms)  = Merge w (map f ms)
+subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r): map f ms)
+  -- don't subst twice
+  where f (k, Var w x) = (k, subst n e (Var w x))
+        f e            = e
 
 {-
 ρ = f …
@@ -247,6 +268,9 @@ boundmerge = replaceret f
 boundmerge :: Show a => L a -> L a
 boundmerge (Cnst w c) = Cnst w c
 boundmerge (Var w n) = Var w n
+boundmerge (Let w (Bound k) v e)
+  = Let w (Local k) (boundmerge v) (Merge w [("ρ", boundmerge e), (k, Var w (Local k))])
+boundmerge (Let w k v e) = Let w k (boundmerge v) (boundmerge e)
 boundmerge (Lam w (Bound n) x)
   = Lam w (Local n) (Merge w [("ρ", boundmerge x), (n, Var w (Local n))])
 boundmerge (Lam w n x) = Lam w n (boundmerge x)
@@ -278,14 +302,22 @@ deleteElem k = filter ((/= k) . fst)
 unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
 unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 
-trace_n :: Show a => String -> L a -> L a -> L a
+-- trace_n :: Show a => String -> L a -> L a -> L a
+trace_n :: String -> L String -> L String -> L String
 trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
 
-normalize :: Show a => L a -> L a
+-- normalize :: Show a => L a -> L a
+normalize :: L String -> L String
 -- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
+normalize e@(Let w n (Merge w2 (("ρ", r):ms)) f)
+    = normalize $ trace_n "lam merge" e
+                $ foldl (\cnt (n, v) -> Let w (Local n) v cnt)
+                        -- substitue r for ρ because of the rholam rule
+                        (Let w (Local "_r") r (subst (Local "ρ") (Var w (Local "_r")) f))
+                        ms
 normalize e@(App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
     = normalize $ trace_n "lam merge" e
                 $ foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
@@ -309,9 +341,11 @@ normalize (App w f x) = go (normalize f) (map normalize x)
                           | otherwise             = error "curried"
         go f' x'          = App w f' x'
 -}
+normalize e'@(Let w k v e) | name k == "ρ" = normalize $ Let w (Local "ρ") (normalize v) e
+normalize e'@(Let w k v e) = normalize $ subst k v e
 normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
 normalize e'@(App w f x) = go (normalize f) (normalize x)
-  where go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
+  where go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n (tag "" x') e
         go f' x'          = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 
@@ -400,22 +434,29 @@ lmtree1 l@(Lam n1 f1) r@(Lam n2 f2)
 lmtree1 l r = subtree l r
 -}
 
+{-
 instance Show W where
 #if 0
   show (W w) = "⟦" ++ intercalate ", " (map (\(k, v) -> k ++ " → " ++ show v) $ M.toList w) ++ "⟧"
 #else
   show (W w) = "(W " ++ intercalate " " (map (\(k, v) -> show k ++ " → " ++ show v) $ M.toList w) ++ ")"
 #endif
+-}
 
 instance Show Name where
   show (Global n) = "G" ++ n
   show (Local n) =  "L" ++ n
   show (Bound n) =  "B" ++ n
 
-instance Show a => Show (L a) where
-  show (Cnst a c)   = c
+showtag tag | null tag  = ""
+            | otherwise = "<" ++ show tag ++ ">"
+
+-- instance Show a => Show (L a) where
+instance Show (L String) where
+  show (Cnst a c)   = c ++ showtag a
   show (Var a n)    = show n
   show (Hold a n e) = "H{" ++ show n ++ ":" ++ show e ++ "}"
+  show (Let a k v e)= "let " ++ show k ++ " = " ++ show v ++ " in " ++ show e
   -- show (Hold a n e) = show e
   show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
 
