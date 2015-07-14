@@ -153,8 +153,8 @@ subst n e e'@(Hold w n' h) | name n == name n' = Hold w n' e
 subst n e e'@(Var w n') | name n == name n' = tag (name n) e
                         | otherwise         = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
-subst n e e'@(Let w n' k v) | name n == name n' = Let w n' k v
-                            | otherwise         = Let w n' k (subst n e v)
+subst n e e'@(Let w n' k v) | name n == name n' = Let w n' (subst n e k) v
+                            | otherwise         = Let w n' (subst n e k) (subst n e v)
 subst n e e'@(Lam w n' f) | name n == name n'  = Lam w n' f
                           | otherwise          = Lam w n' (subst n e f)
 -- subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r):ms)
@@ -316,10 +316,10 @@ normalize e@(Let w n (Merge w2 (("ρ", r):ms)) f)
     = normalize $ trace_n "lam merge" e
                 $ foldl (\cnt (n, v) -> Let w (Local n) v cnt)
                         -- substitue r for ρ because of the rholam rule
-                        (Let w (Local "_r") r (subst (Local "ρ") (Var w (Local "_r")) f))
+                        (Let w (Local "_r") r (subst n (Var w (Local "_r")) f))
                         ms
 normalize e@(App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
-    = normalize $ trace_n "lam merge" e
+    = normalize $ trace_n "let merge" e
                 $ foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
                         -- substitue r for ρ because of the rholam rule
                         (App w (Lam w2 (Local "_r") (subst (Local "ρ") (Var w2 (Local "_r")) f)) r)
@@ -341,11 +341,11 @@ normalize (App w f x) = go (normalize f) (map normalize x)
                           | otherwise             = error "curried"
         go f' x'          = App w f' x'
 -}
-normalize e'@(Let w k v e) | name k == "ρ" = normalize $ Let w (Local "ρ") (normalize v) e
-normalize e'@(Let w k v e) = normalize $ subst k v e
-normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
+-- normalize e'@(Let w k v e) | name k == "ρ" = normalize $ Let w (Local "ρ") (normalize v) e
+normalize e'@(Let w k v e) = normalize $ trace_n "let" e' $ subst_dbg k (normalize v) e
+-- normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
 normalize e'@(App w f x) = go (normalize f) (normalize x)
-  where go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n (tag "" x') e
+  where go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
         go f' x'          = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 
