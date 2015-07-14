@@ -155,6 +155,15 @@ js4 =
   \ return a; \
   \ }"
 
+js5 =
+  " \
+  \ var a = 1; \
+  \ var f = function(x) { a = 6; return x; }; \
+  \ var g = function(x) { a = 8; return x; }; \
+  \ var c = g(f(4)); \
+  \ return a + c; \
+  \ }"
+
 jsmap =
   "{ \
   \ var map = function(f, array) { \

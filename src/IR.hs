@@ -18,6 +18,9 @@ import           Data.Generics.Uniplate.Data
 
 import           Graph
 
+import System.IO.Unsafe
+import System.Random
+
 import Debug.Trace
 
 data Name = Local  { name :: String }
@@ -305,6 +308,11 @@ unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 -- trace_n :: Show a => String -> L a -> L a -> L a
 trace_n :: String -> L String -> L String -> L String
 trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+-- trace_n rule before after = after
+
+{-# NOINLINE newName #-}
+newName :: () -> String
+newName () = "_r" ++ show (unsafePerformIO $ randomRIO (0, 10000) :: Int)
 
 -- normalize :: Show a => L a -> L a
 normalize :: L String -> L String
@@ -313,16 +321,25 @@ normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
 normalize e@(Let w n (Merge w2 (("ρ", r):ms)) f)
-    = normalize $ trace_n "lam merge" e
+    = normalize $ trace_n "let merge" e
                 $ foldl (\cnt (n, v) -> Let w (Local n) v cnt)
                         -- substitue r for ρ because of the rholam rule
-                        (Let w (Local "_r") r (subst n (Var w (Local "_r")) f))
+                        -- (Let w (Local nname) r (subst n (Var w (Local nname)) f))
+                        (Let w n r f)
                         ms
+                where nname = newName ()
+{-
 normalize e@(App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
-    = normalize $ trace_n "let merge" e
+    = normalize $ trace_n "lam merge" e
                 $ foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
                         -- substitue r for ρ because of the rholam rule
                         (App w (Lam w2 (Local "_r") (subst (Local "ρ") (Var w2 (Local "_r")) f)) r)
+                        ms
+-}
+normalize e@(App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
+    = normalize $ trace_n "lam merge" e
+                $ foldl (\cnt (n, v) -> Let w (Local n) v cnt)
+                        (Let w n r f)
                         ms
 -- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
 normalize e@(Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
