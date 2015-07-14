@@ -127,11 +127,15 @@ subst n e e'@(Lam w ns f) | name n `elem` map name ns = Lam w ns f -- don't subs
 subst n e e'@(Merge w xs) = Merge w (map (second $ subst n e) xs)
 -}
 
+subst_dbg :: Show a => Name -> L a -> L a -> L a
+subst_dbg n e e' = trace_n ("☀☀ [" ++ show n ++ "=" ++ show e ++ "]") e' $ subst n e e'
+
 subst :: Name -> L a -> L a -> L a
 subst _ _ e'@(Cnst _ _) = e'
 subst n e e'@(Hold w n' h) | name n == name n' = Hold w n' e
                            | otherwise         = Hold w n' (subst n e h)
-subst n e e'@(Var w n') | name n == name n' = Hold w n' e
+-- subst n e e'@(Var w n') | name n == name n' = Hold w n' e
+subst n e e'@(Var w n') | name n == name n' = e
                         | otherwise         = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | name n == name n'  = Lam w n' f
@@ -285,7 +289,8 @@ normalize (Hold w n e) = Hold w n $ normalize e
 normalize e@(App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
     = normalize $ trace_n "lam merge" e
                 $ foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
-                        (App w (Lam w2 n f) r)
+                        -- substitue r for ρ because of the rholam rule
+                        (App w (Lam w2 (Local "_r") (subst (Local "ρ") (Var w2 (Local "_r")) f)) r)
                         ms
 -- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
 normalize e@(Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
@@ -304,8 +309,9 @@ normalize (App w f x) = go (normalize f) (map normalize x)
                           | otherwise             = error "curried"
         go f' x'          = App w f' x'
 -}
+normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
 normalize e'@(App w f x) = go (normalize f) (normalize x)
-  where go (Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e' $ subst n x' e
+  where go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
         go f' x'          = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 
