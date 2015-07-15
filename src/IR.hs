@@ -327,7 +327,7 @@ normalize e@(Lam w (Bound n) x)
   = normalize $ trace_n "lift merge" e $ Lam w (Local n) (Merge w [("ρ", normalize x), (n, Var w (Local n))])
 -- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
 normalize e@(Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
-  = normalize $ trace_n "nested merge" e $ Merge w (("ρ", r):unionElems ms2 ms)
+  = normalize $ trace_n "nested merge" e $ Merge w (("ρ", r):unionElems ms ms2)
 -- (⤚ x y) u                 ≈ ⤚ (x u) y
 normalize e@(App w (Merge w2 (("ρ", r):ms)) x)
   = normalize $ trace_n "merge app" e $ Merge w2 (("ρ", App w r x):ms)
@@ -347,6 +347,7 @@ normalize e'@(Let w k v e) = go (normalize v)
                               ms
         go v' = normalize $ trace_n "let" e' $ subst_dbg k v' e
 -- normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
+-- normalize e'@(App w (Lam w2 n e) x) = normalize $ trace_n ("subst simple[" ++ show n ++ "=" ++ show x ++ "]") e' $ subst_dbg n (tag "" x) e
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where go e''@(Lam w2 n f) e'''@(Merge w3 (("ρ", r):ms))
           {-
@@ -362,6 +363,19 @@ normalize e'@(App w f x) = go (normalize f) (normalize x)
         go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n (tag "" x') e
         go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
+
+{-
+f { a = 6; }
+g { a = 8; }
+g(f()) -> a = 8
+
+g(); f();
+((GOpAdd La) (⤚ ρ{(((λLx → (λLω → (⤚ ρ{Lx} a{6<a>}))) 4) Lω)<x>} a{8<a>}))
+
+f (⤚… a) : ⤚f… a and delete a from all inner merges?
+(⤚… a) f : ?
+
+-}
 
 simplify :: Show a => L a -> L a
 simplify = undefined
