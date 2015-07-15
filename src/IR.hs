@@ -142,32 +142,6 @@ subst n e e'@(Lam w ns f) | name n `elem` map name ns = Lam w ns f -- don't subs
 subst n e e'@(Merge w xs) = Merge w (map (second $ subst n e) xs)
 -}
 
--- subst_dbg :: Show a => Name -> L a -> L a -> L a
-subst_dbg :: Name -> L String -> L String -> L String
-subst_dbg n e e' = trace_n ("☀☀ [" ++ show n ++ "=" ++ show e ++ "]") e' $ subst n e e'
-
--- subst :: Name -> L a -> L a -> L a
-subst :: Name -> L String -> L String -> L String
-subst n e e' | name n == unTag e' = tag (name n) e
-subst _ _ e'@(Cnst _ _) = e'
-subst n e e'@(Hold w n' h) | name n == name n' = Hold w n' e
-                           | otherwise         = Hold w n' (subst n e h)
--- subst n e e'@(Var w n') | name n == name n' = Hold w n' e
-subst n e e'@(Var w n') | name n == name n' = tag (name n) e
-                        | otherwise         = e'
-subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
-subst n e e'@(Let w n' k v) | name n == name n' = Let w n' (subst n e k) v
-                            | otherwise         = Let w n' (subst n e k) (subst n e v)
-subst n e e'@(Lam w n' f) | name n == name n'  = Lam w n' f
-                          | otherwise          = Lam w n' (subst n e f)
--- subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r):ms)
--- subst n e e'@(Merge w ms)  = Merge w (map f ms)
-subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r): map f ms)
-  -- don't subst twice
-  where f (k, Var w x) = (k, subst n e (Var w x))
-  -- where f (k, e') = (k, subst n e e')
-        f e            = e
-
 {-
 ρ = f …
 
@@ -298,6 +272,34 @@ zip' (x:xs) (y:ys) = (Just x, Just y) :zip' xs ys
 zip' (x:xs) []     = (Just x, Nothing):zip' xs []
 zip' [] (y:ys)     = (Nothing, Just y):zip' [] ys
 
+-- subst_dbg :: Show a => Name -> L a -> L a -> L a
+subst_dbg :: Name -> L String -> L String -> L String
+subst_dbg n e e' = trace_n ("☀☀ [" ++ show n ++ "=" ++ show e ++ "]") e' $ subst n e e'
+
+-- subst :: Name -> L a -> L a -> L a
+subst :: Name -> L String -> L String -> L String
+-- FIXME: ρ
+subst n e e' | name n == unTag e' = if name n == "ρ" then e else tag (name n) e
+subst _ _ e'@(Cnst _ _) = e'
+subst n e e'@(Hold w n' h) | name n == name n' = Hold w n' e
+                           | otherwise         = Hold w n' (subst n e h)
+-- subst n e e'@(Var w n') | name n == name n' = Hold w n' e
+-- FIXME: ρ
+subst n e e'@(Var w n') | name n == name n' = if name n == "ρ" then e else tag (name n) e
+                        | otherwise         = e'
+subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
+subst n e e'@(Let w n' k v) | name n == name n' = Let w n' (subst n e k) v
+                            | otherwise         = Let w n' (subst n e k) (subst n e v)
+subst n e e'@(Lam w n' f) | name n == name n'  = Lam w n' f
+                          | otherwise          = Lam w n' (subst n e f)
+-- subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r):ms)
+-- subst n e e'@(Merge w ms)  = Merge w (map f ms)
+subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r): map f ms)
+  -- don't subst twice
+  where f (k, Var w x) = (k, subst n e (Var w x))
+  -- where f (k, e') = (k, subst n e e')
+        f e            = e
+
 trace_tag str x = trace (str ++ show x) x
 
 deleteElem :: Eq k => k -> [(k, v)] -> [(k, v)]
@@ -321,19 +323,11 @@ normalize :: L String -> L String
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
-{-
-normalize e@(App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
-    = normalize $ trace_n "lam merge" e
-                $ foldl (\cnt (n, v) -> App w (Lam w2 (Local n) cnt) v)
-                        -- substitue r for ρ because of the rholam rule
-                        (App w (Lam w2 (Local "_r") (subst (Local "ρ") (Var w2 (Local "_r")) f)) r)
-                        ms
--}
 normalize e@(Lam w (Bound n) x)
   = normalize $ trace_n "lift merge" e $ Lam w (Local n) (Merge w [("ρ", normalize x), (n, Var w (Local n))])
 -- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
 normalize e@(Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
-  = normalize $ trace_n "nested merge" e $ Merge w (("ρ", r):unionElems ms ms2)
+  = normalize $ trace_n "nested merge" e $ Merge w (("ρ", r):unionElems ms2 ms)
 -- (⤚ x y) u                 ≈ ⤚ (x u) y
 normalize e@(App w (Merge w2 (("ρ", r):ms)) x)
   = normalize $ trace_n "merge app" e $ Merge w2 (("ρ", App w r x):ms)
@@ -352,7 +346,7 @@ normalize e'@(Let w k v e) = go (normalize v)
                               (Let w k r e)
                               ms
         go v' = normalize $ trace_n "let" e' $ subst_dbg k v' e
-normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
+-- normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where go e''@(Lam w2 n f) e'''@(Merge w3 (("ρ", r):ms))
           {-
@@ -362,10 +356,10 @@ normalize e'@(App w f x) = go (normalize f) (normalize x)
                               ms
           -}
           = normalize $ trace_n ("lam merge{" ++ show e''' ++ "}") e''
-                      $ foldl (\cnt (n, v) -> App w (Lam w (Bound n) cnt) v)
+                      $ foldl (\cnt (n, v) -> App w (Lam w2 (Bound n) cnt) v)
                               (App w (Lam w n f) r)
                               ms
-        go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
+        go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n (tag "" x') e
         go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 
@@ -469,7 +463,7 @@ instance Show Name where
   show (Bound n) =  "B" ++ n
 
 showtag tag | null tag  = ""
-            | otherwise = "<" ++ show tag ++ ">"
+            | otherwise = "<" ++ tag ++ ">"
 
 -- instance Show a => Show (L a) where
 instance Show (L String) where
@@ -480,9 +474,9 @@ instance Show (L String) where
   -- show (Hold a n e) = show e
   show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
 
-#if 0
-  show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ show a ++ ")"
-  show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ show a ++ ")"
+#if 1
+  show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ ")" ++ showtag a
+  show (Lam a n f)  = "(λ" ++ show n ++ " → " ++ show f ++ ")"
 #else
 {-
   show (App a f x)                      = "(" ++ show f ++ " " ++ intercalate " " (map show x) ++ ")"
@@ -494,5 +488,5 @@ instance Show (L String) where
   show (App a f x@(Lam _ _ _))              = "" ++ show f ++ " (" ++ show x ++ ")"
   show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
-  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") xs) ++ ")"
 #endif
+  show (Merge a xs)                         = "(⤚ " ++ intercalate " " (map (\(k, v) -> k ++ "{" ++ show v ++ "}") xs) ++ ")"
