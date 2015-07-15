@@ -325,19 +325,6 @@ normalize (Var w n)    = Var w n
 normalize (Hold w n e) = Hold w n $ normalize e
 normalize e@(Lam w (Bound n) x)
   = normalize $ trace_n "lift merge" e $ Lam w (Local n) (Merge w [("ρ", normalize x), (n, Var w (Local n))])
--- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
-normalize e@(Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
-  = normalize $ trace_n "nested merge" e $ Merge w (("ρ", r):unionElems ms ms2)
--- (⤚ x y) u                 ≈ ⤚ (x u) y
-normalize e@(App w (Merge w2 (("ρ", r):ms)) x)
-  = normalize $ trace_n "merge app" e $ Merge w2 (("ρ", App w r x):ms)
--- u (⤚ x y)                 ≈ ⤚ (u x) y
-normalize e@(App w f (Merge w2 (("ρ", r):ms)))
-  = normalize $ trace_n "app merge" e $ Merge w2 (("ρ", App w f r):ms)
--- ??
--- normalize e'@(Merge w (("ρ", Let w2 k v e):xs)) = normalize $ trace_n "merge out" e' $ Let w2 k v (Merge w (("ρ", e):xs))
-normalize (Merge w xs) = Merge w (map (second normalize) xs)
--- normalize e'@(Let w k v e) | name k == "ρ" = normalize $ Let w (Local "ρ") (normalize v) e
 normalize e'@(Let w k v e) = go (normalize v)
   where -- go v' | name k == "ω" = normalize $ trace_n "let ω" e' $ subst_dbg k v' e
         go v'@(Merge w2 (("ρ", r):ms))
@@ -360,9 +347,19 @@ normalize e'@(App w f x) = go (normalize f) (normalize x)
                       $ foldl (\cnt (n, v) -> App w (Lam w2 (Bound n) cnt) v)
                               (App w (Lam w n f) r)
                               ms
+        -- u (⤚ x y)                 ≈ ⤚ (u x) y
         go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n (tag "" x') e
+        go f (Merge w2 (("ρ", r):ms))
+          = normalize $ trace_n "app merge" e' $ Merge w2 (("ρ", App w f r):ms)
+        -- (⤚ x y) u                 ≈ ⤚ (x u) y
+        go (Merge w2 (("ρ", r):ms)) x
+          = normalize $ trace_n "merge app" e' $ Merge w2 (("ρ", App w r x):ms)
         go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
+-- ??
+-- normalize e'@(Merge w (("ρ", Let w2 k v e):xs)) = normalize $ trace_n "merge out" e' $ Let w2 k v (Merge w (("ρ", e):xs))
+normalize (Merge w xs) = Merge w (map (second normalize) xs)
+-- normalize e'@(Let w k v e) | name k == "ρ" = normalize $ Let w (Local "ρ") (normalize v) e
 
 {-
 f { a = 6; }
