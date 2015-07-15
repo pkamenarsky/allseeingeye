@@ -95,10 +95,10 @@ sToE (Lambda ns p) = foldr (Lam w) (sToP p) ns
 
 sToP :: P -> L String
 sToP (P [])              = error "no return"
--- sToP (P (Decl n e:ps))   = App w (Lam w n (sToP (P ps))) (sToE e)
--- sToP (P (Assign n e:ps)) = App w (Lam w n (sToP (P ps))) (sToE e)
-sToP (P (Decl n e:ps))   = Let w n (sToE e) (sToP (P ps))
-sToP (P (Assign n e:ps)) = Let w n (sToE e) (sToP (P ps))
+sToP (P (Decl n e:ps))   = App w (Lam w n (sToP (P ps))) (sToE e)
+sToP (P (Assign n e:ps)) = App w (Lam w n (sToP (P ps))) (sToE e)
+-- sToP (P (Decl n e:ps))   = Let w n (sToE e) (sToP (P ps))
+-- sToP (P (Assign n e:ps)) = Let w n (sToE e) (sToP (P ps))
 sToP (P (Return e:_))    = sToE e
 sToP (P (Ctrl e p:_))    = error "ctrl"
 
@@ -148,7 +148,7 @@ subst_dbg n e e' = trace_n ("☀☀ [" ++ show n ++ "=" ++ show e ++ "]") e' $ s
 
 -- subst :: Name -> L a -> L a -> L a
 subst :: Name -> L String -> L String -> L String
-subst n e e' | name n == unTag e' = e
+subst n e e' | name n == unTag e' = tag (name n) e
 subst _ _ e'@(Cnst _ _) = e'
 subst n e e'@(Hold w n' h) | name n == name n' = Hold w n' e
                            | otherwise         = Hold w n' (subst n e h)
@@ -329,6 +329,8 @@ normalize e@(App w (Lam w2 n f) (Merge w3 (("ρ", r):ms)))
                         (App w (Lam w2 (Local "_r") (subst (Local "ρ") (Var w2 (Local "_r")) f)) r)
                         ms
 -}
+normalize e@(Lam w (Bound n) x)
+  = normalize $ trace_n "lift merge" e $ Lam w (Local n) (Merge w [("ρ", normalize x), (n, Var w (Local n))])
 -- ⤚ (⤚ x y) (⤚ u v)         ≈ ⤚ x y u v
 normalize e@(Merge w (("ρ", Merge w2 (("ρ", r):ms)):ms2))
   = normalize $ trace_n "nested merge" e $ Merge w (("ρ", r):unionElems ms ms2)
@@ -350,15 +352,21 @@ normalize e'@(Let w k v e) = go (normalize v)
                               (Let w k r e)
                               ms
         go v' = normalize $ trace_n "let" e' $ subst_dbg k v' e
--- normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
+normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
 normalize e'@(App w f x) = go (normalize f) (normalize x)
-  where go e''@(Lam w2 n f) (Merge w3 (("ρ", r):ms))
-          = normalize $ trace_n "lam merge" e''
+  where go e''@(Lam w2 n f) e'''@(Merge w3 (("ρ", r):ms))
+          {-
+          = normalize $ trace_n "lam merge" e'
                       $ foldl (\cnt (n, v) -> Let w (Local n) v cnt)
                               (Let w n r f)
                               ms
+          -}
+          = normalize $ trace_n ("lam merge{" ++ show e''' ++ "}") e''
+                      $ foldl (\cnt (n, v) -> App w (Lam w (Bound n) cnt) v)
+                              (App w (Lam w n f) r)
+                              ms
         go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
-        go f' x'          = trace_n "app" e' $ App w f' x'
+        go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 
 simplify :: Show a => L a -> L a
