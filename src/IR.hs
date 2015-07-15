@@ -272,6 +272,23 @@ zip' (x:xs) (y:ys) = (Just x, Just y) :zip' xs ys
 zip' (x:xs) []     = (Just x, Nothing):zip' xs []
 zip' [] (y:ys)     = (Nothing, Just y):zip' [] ys
 
+trace_tag str x = trace (str ++ show x) x
+
+deleteElem :: Eq k => k -> [(k, v)] -> [(k, v)]
+deleteElem k = filter ((/= k) . fst)
+
+unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
+unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
+
+-- trace_n :: Show a => String -> L a -> L a -> L a
+trace_n :: String -> L String -> L String -> L String
+trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+-- trace_n rule before after = after
+
+{-# NOINLINE newName #-}
+newName :: () -> String
+newName () = "_r" ++ show (unsafePerformIO $ randomRIO (0, 10000) :: Int)
+
 -- subst_dbg :: Show a => Name -> L a -> L a -> L a
 subst_dbg :: Name -> L String -> L String -> L String
 subst_dbg n e e' = trace_n ("☀☀ [" ++ show n ++ "=" ++ show e ++ "]") e' $ subst n e e'
@@ -299,23 +316,6 @@ subst n e e'@(Merge w (("ρ", r):ms))  = Merge w (("ρ", subst n e r): map f ms)
   where f (k, Var w x) = (k, subst n e (Var w x))
   -- where f (k, e') = (k, subst n e e')
         f e            = e
-
-trace_tag str x = trace (str ++ show x) x
-
-deleteElem :: Eq k => k -> [(k, v)] -> [(k, v)]
-deleteElem k = filter ((/= k) . fst)
-
-unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
-unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
-
--- trace_n :: Show a => String -> L a -> L a -> L a
-trace_n :: String -> L String -> L String -> L String
-trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
--- trace_n rule before after = after
-
-{-# NOINLINE newName #-}
-newName :: () -> String
-newName () = "_r" ++ show (unsafePerformIO $ randomRIO (0, 10000) :: Int)
 
 -- normalize :: Show a => L a -> L a
 normalize :: L String -> L String
