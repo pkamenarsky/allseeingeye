@@ -282,8 +282,8 @@ unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 
 -- trace_n :: Show a => String -> L a -> L a -> L a
 trace_n :: String -> L String -> L String -> L String
-trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
--- trace_n rule before after = after
+-- trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+trace_n rule before after = after
 
 {-# NOINLINE newName #-}
 newName :: () -> String
@@ -334,7 +334,9 @@ normalize e'@(Let w k v e) = go (normalize v)
                               ms
         go v' = normalize $ trace_n "let" e' $ subst_dbg k v' e
 -- normalize e'@(App w (Lam w2 n f) x) | name n == "ρ" = trace_n "rholam" e' $ App w (Lam w2 n f) (normalize x)
--- normalize e'@(App w (Lam w2 n e) x) = normalize $ trace_n ("subst simple[" ++ show n ++ "=" ++ show x ++ "]") e' $ subst_dbg n (tag "" x) e
+normalize e'@(App w (Lam w2 n@(Local _) e) x) | isNotMerge x = normalize $ trace_n ("subst simple[" ++ show n ++ "=" ++ show x ++ "]") e' $ subst_dbg n (tag "" (normalize x)) e
+  where isNotMerge (Merge _ _) = False
+        isNotMerge _           = True
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where go e''@(Lam w2 n f) e'''@(Merge w3 (("ρ", r):ms))
           {-
