@@ -106,7 +106,7 @@ subst n e e'@(Var w n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
-subst n e e'@(W w m) = trace_n "bs" e' $ W w (M.map (subst n e) m)
+subst n e e'@(W w m) = trace_n "w subst" e' $ W w (M.map (subst n e) m)
 
 -- normalize :: Show a => L a -> L a
 normalize :: L String -> L String
