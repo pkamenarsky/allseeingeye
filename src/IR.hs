@@ -87,8 +87,8 @@ unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 
 -- trace_n :: Show a => String -> L a -> L a -> L a
 trace_n :: String -> L String -> L String -> L String
--- trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
-trace_n rule before after = after
+trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+-- trace_n rule before after = after
 
 {-# NOINLINE newName #-}
 newName :: () -> String
@@ -106,8 +106,7 @@ subst n e e'@(Var w n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
-subst n e e'@(W w m) | Just v <- M.lookup "ρ" m = subst n e v
-                     | otherwise = e'
+subst n e e'@(W w m) = W w (M.map (subst n e) m)
 
 -- normalize :: Show a => L a -> L a
 normalize :: L String -> L String
@@ -117,13 +116,13 @@ normalize (Var w n)    = Var w n
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where
     go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x e
-    go (App w2 (App w3 (Var w4 "↪ω") (Cnst w5 k)) v) (Var w6 "ω")
-                          = W w (M.singleton k (normalize v))
-    go (App w2 (App w3 (Var w4 "↪ω") (Cnst w5 k)) v) (W w6 m)
-                          = W w (M.insert k (normalize v) m)
-    go (App w3 (Var w4 "↖ω") (Cnst w5 k)) (W w6 m)
+    go (App w2 (App w3 (Var w4 "↪ω") e'@(Cnst w5 k)) v) (Var w6 "ω")
+                          = trace_n "singleton" e' $ W w (M.singleton k (normalize v))
+    go (App w2 (App w3 (Var w4 "↪ω") e'@(Cnst w5 k)) v) (W w6 m)
+                          = trace_n "insert" e' $ W w (M.insert k (normalize v) m)
+    go f'@(App w3 (Var w4 "↖ω") (Cnst w5 k)) x'@(W w6 m)
       | Just v <- M.lookup k m = normalize v
-      | otherwise              = App w (App w3 (Var w4 "↖ω") (Cnst w5 k)) (W w6 m)
+      | otherwise              = App w f' x'
     go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 normalize e@(W w m)     = W w (M.map normalize m)
