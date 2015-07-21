@@ -106,7 +106,7 @@ subst n e e'@(Var w n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
-subst n e e'@(W w m) = W w (M.map (subst n e) m)
+subst n e e'@(W w m) = trace_n "bs" e' $ W w (M.map (subst n e) m)
 
 -- normalize :: Show a => L a -> L a
 normalize :: L String -> L String
@@ -115,7 +115,7 @@ normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where
-    go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x e
+    go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
     go (App w2 (App w3 (Var w4 "↪ω") e'@(Cnst w5 k)) v) (Var w6 "ω")
                           = trace_n "singleton" e' $ W w (M.singleton k (normalize v))
     go (App w2 (App w3 (Var w4 "↪ω") e'@(Cnst w5 k)) v) (W w6 m)
