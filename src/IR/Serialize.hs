@@ -25,13 +25,13 @@ instance Show Name where
 
 instance Show E where
   show (Const x) = x
-  show (Ref x) = show x
+  show (Ref x) = x
   show (Call f xs) = show f ++ "(" ++ intercalate "," (map show xs) ++ ")"
-  show (Lambda as s) = "\\(" ++ intercalate "," (map show as) ++ ") -> " ++ show s
+  show (Lambda as s) = "\\(" ++ intercalate "," as ++ ") -> " ++ show s
 
 instance Show S where
-  show (Decl a x) = "var " ++ show a ++ " = " ++ show x
-  show (Assign a x) = show a ++ " = " ++ show x
+  show (Decl a x) = "var " ++ a ++ " = " ++ show x
+  show (Assign a x) = a ++ " = " ++ show x
   show (Return x) = "return " ++ show x
   show (Ctrl f xs) = "ctrl(" ++ show f ++ ")" ++ show xs
 

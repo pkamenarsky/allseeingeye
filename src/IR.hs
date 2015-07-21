@@ -47,9 +47,8 @@ data L a = Cnst a String
          | Extrn a Name
          | App a (L a) (L a)
          | Lam a Name (L a)
+         | W a (M.Map Name (L a))
          deriving (Eq, Ord, Data, Typeable)
-
-data W = W { unW :: M.Map Name (L W) } deriving (Eq, Ord, Data, Typeable)
 
 w = ""
 
@@ -107,6 +106,8 @@ subst n e e'@(Var w n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
+subst n e e'@(W w m) | Just v <- M.lookup "ρ" m = subst n e v
+                     | otherwise = e'
 
 -- normalize :: Show a => L a -> L a
 normalize :: L String -> L String
@@ -114,9 +115,18 @@ normalize :: L String -> L String
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize e'@(App w f x) = go (normalize f) (normalize x)
-  where go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x e
-        go f' x'              = trace_n "app" e' $ App w f' x'
+  where
+    go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x e
+    go (App w2 (App w3 (Var w4 "↪ω") (Cnst w5 k)) v) (Var w6 "ω")
+                          = W w (M.singleton k (normalize v))
+    go (App w2 (App w3 (Var w4 "↪ω") (Cnst w5 k)) v) (W w6 m)
+                          = W w (M.insert k (normalize v) m)
+    go (App w3 (Var w4 "↖ω") (Cnst w5 k)) (W w6 m)
+      | Just v <- M.lookup k m = normalize v
+      | otherwise              = App w (App w3 (Var w4 "↖ω") (Cnst w5 k)) (W w6 m)
+    go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
+normalize e@(W w m)     = W w (M.map normalize m)
 
 simplify :: Show a => L a -> L a
 simplify = undefined
@@ -204,18 +214,15 @@ instance Show W where
 #endif
 -}
 
-showtag tag | null tag  = ""
-            | otherwise = "<" ++ tag ++ ">"
-
 -- instance Show a => Show (L a) where
 instance Show (L String) where
-  show (Cnst a c)   = c ++ showtag a
-  show (Var a n)    = show n
-  show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
+  show (Cnst a c)   = c
+  show (Var a n)    = n
+  show (Extrn a n)  = "⟨" ++ n ++ "⟩"
 
 #if 1
-  show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ ")" ++ showtag a
-  show (Lam a n f)  = "(λ" ++ show n ++ " → " ++ show f ++ ")"
+  show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
+  show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
 #else
 {-
   show (App a f x)                      = "(" ++ show f ++ " " ++ intercalate " " (map show x) ++ ")"
@@ -228,3 +235,4 @@ instance Show (L String) where
   show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
 #endif
+  show (W a m)                              = "{" ++ intercalate "," (map (\(k, v) -> k ++ "=" ++ show v) $ M.toList m) ++ "}"
