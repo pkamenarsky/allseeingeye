@@ -91,8 +91,8 @@ trace_n rule before after = unsafePerformIO $ do
   putStrLn rule
   return after
 -}
-trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
--- trace_n rule before after = after
+-- trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+trace_n rule before after = after
 
 {-# NOINLINE newName #-}
 newName :: () -> String
@@ -118,6 +118,7 @@ normalize :: Show a => L a -> L a
 -- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
+-- TODO: implement capturing tests
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where
     go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
