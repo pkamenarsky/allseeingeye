@@ -91,8 +91,8 @@ trace_n rule before after = unsafePerformIO $ do
   putStrLn rule
   return after
 -}
--- trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
-trace_n rule before after = after
+trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+-- trace_n rule before after = after
 
 {-# NOINLINE newName #-}
 newName :: () -> String
