@@ -232,7 +232,7 @@ jsdecl3 =
   \     g(); \
   \  } \
   \ f(); \
-  \ return a; \
+  \ return b; \
   \ "
 
 jsdecl4 =

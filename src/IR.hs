@@ -106,7 +106,7 @@ subst n e e'@(Var w n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
-subst "ω" (W w2 m2 r2) e'@(W w m r) = trace_n "omega subst" e' $ W w (M.union m m2) r2
+subst "ω" e@(W w2 m2 r2) e'@(W w m r) = trace_n "omega subst" e' $ W w (M.map (subst "ω" e) (M.union m m2)) r2
 -- subst "ω" e e'@(W w m r) = trace_n "omega subst 2" e' $ W w m (subst "ω" e r)
 subst n e e'@(W w m r) = trace_n "w subst" e' $ W w (M.map (subst n e) m) r
 
