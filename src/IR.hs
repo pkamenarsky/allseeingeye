@@ -87,6 +87,11 @@ unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 
 -- trace_n :: Show a => String -> L a -> L a -> L a
 trace_n :: String -> L String -> L String -> L String
+{-
+trace_n rule before after = unsafePerformIO $ do
+  putStrLn rule
+  return after
+-}
 -- trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
 trace_n rule before after = after
 
@@ -106,8 +111,7 @@ subst n e e'@(Var w n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
-subst "ω" e@(W w2 m2 r2) e'@(W w m r) = trace_n "omega subst" e' $ W w (M.map (subst "ω" e) (M.union m m2)) r2
--- subst "ω" e e'@(W w m r) = trace_n "omega subst 2" e' $ W w m (subst "ω" e r)
+subst "ω" e@(W w2 m2 r2) e'@(W w m r) = trace_n "omega subst" e' $ W w (M.union (M.map (subst "ω" e) m) m2) r2
 subst n e e'@(W w m r) = trace_n "w subst" e' $ W w (M.map (subst n e) m) r
 
 -- normalize :: Show a => L a -> L a

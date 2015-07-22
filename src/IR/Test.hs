@@ -220,6 +220,17 @@ jsdecl2 =
   \ return a; \
   \ "
 
+jsdecl2b =
+  " var a = new Class(); \
+  \  { \
+  \    a = new Object(); \
+  \    { \
+  \      b = a.f(5); \
+  \    } \
+  \  } \
+  \ return b; \
+  \ "
+
 jsdecl3 =
   " var a = 555; \
   \ var b = 666; \
