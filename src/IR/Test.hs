@@ -223,15 +223,16 @@ jsdecl2 =
 jsdecl3 =
   " var a = 555; \
   \ var b = 666; \
+  \ var g; \
   \ var f = function () { \
   \    b = 6; \
   \    a = 7; \
-  \    var g = function () { \
+  \    g = function () { \
   \       b = 999; \
   \     } \
-  \     g(); \
   \  } \
   \ f(); \
+  \ g(); \
   \ return b; \
   \ "
 
