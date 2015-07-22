@@ -85,8 +85,7 @@ deleteElem k = filter ((/= k) . fst)
 unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
 unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
 
--- trace_n :: Show a => String -> L a -> L a -> L a
-trace_n :: String -> L String -> L String -> L String
+trace_n :: Show a => String -> L a -> L a -> L a
 {-
 trace_n rule before after = unsafePerformIO $ do
   putStrLn rule
@@ -100,11 +99,11 @@ newName :: () -> String
 newName () = "_r" ++ show (unsafePerformIO $ randomRIO (0, 10000) :: Int)
 
 -- subst_dbg :: Show a => Name -> L a -> L a -> L a
-subst_dbg :: Name -> L String -> L String -> L String
+subst_dbg :: Show a => Name -> L a -> L a -> L a
 subst_dbg n e e' = trace_n ("☀☀ [" ++ n ++ "=" ++ show e ++ "]") e' $ subst n e e'
 
 -- subst :: Name -> L a -> L a -> L a
-subst :: Name -> L String -> L String -> L String
+subst :: Show a => Name -> L a -> L a -> L a
 subst _ _ e'@(Cnst _ _) = e'
 subst n e e'@(Var w n') | n == n'   = e
                         | otherwise = e'
@@ -112,10 +111,10 @@ subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
 subst "ω" e@(W w2 m2 r2) e'@(W w m r) = trace_n "omega subst" e' $ W w (M.union (M.map (subst "ω" e) m) m2) r2
-subst n e e'@(W w m r) = trace_n "w subst" e' $ W w (M.map (subst n e) m) r
+subst n e e'@(W w m r) = trace_n "w subst" e' $ W w (M.map (subst n e) m) (subst n e r)
 
 -- normalize :: Show a => L a -> L a
-normalize :: L String -> L String
+normalize :: Show a => L a -> L a
 -- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
@@ -135,7 +134,10 @@ normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 normalize e@(W w m r)   = W w (M.map normalize m) r
 
 simplify :: Show a => L a -> L a
-simplify = undefined
+simplify = go . normalize
+  where go e@(W _ m _) | Just r <- M.lookup "ρ" m = r
+                       | otherwise                = e
+        go e = e
 
 u = undefined
 app = App u
@@ -221,13 +223,12 @@ instance Show W where
 -}
 
 -- instance Show a => Show (L a) where
-instance Show (L String) where
+instance Show a => Show (L a) where
   show (Cnst a c)   = c
   show (Var a n)    = n
   show (Extrn a n)  = "⟨" ++ n ++ "⟩"
 
-  show ((App _ (App _ (Var _ "↖ω") k) (Var _ "ω")))
-                                            = "⟨" ++ show k ++ "⟩"
+  -- show ((App _ (App _ (Var _ "↖ω") k) (Var _ "ω"))) = "⟨" ++ show k ++ "⟩"
 #if 1
   show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
   show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
