@@ -110,9 +110,11 @@ subst n e e'@(Var w n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
+-- TODO: is subst recursive or something?
+-- ↪k (...ω...) (↪ k' (...ω'...) ω)
 subst n@(Extern "ω") e@(W w2 m2 r2) e'@(W w m r)
   = trace_n "omega subst" e' $ W w (M.union (M.map (subst n e) m) m2) r2
-subst n e e'@(W w m r) = trace_n "w subst" e' $ W w (M.map (subst n e) m) (subst n e r)
+subst n e e'@(W w m r) = trace_n "w subst" e' $ W w (M.map (subst n e) m) r
 
 -- normalize :: Show a => L a -> L a
 normalize :: Show a => L a -> L a
@@ -133,6 +135,7 @@ normalize e'@(App w f x) = go (normalize f) (normalize x)
       | Just v <- M.lookup k m = v
       | otherwise            = App w f' r
     -- drilling
+#if 0
     go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 (Extern "Object")))
           (Var w6 (Extern "ω")) = W w M.empty (Var w6 (Extern "ω"))
     go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
@@ -144,6 +147,7 @@ normalize e'@(App w f x) = go (normalize f) (normalize x)
       | trace ("A: " ++ show k ++ ", " ++ show var) False = undefined
       | (Bound k') <- k, k' > var, Just v <- M.lookup k m = v
       | otherwise            = App w f' r
+#endif
     -- drilling
     go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)

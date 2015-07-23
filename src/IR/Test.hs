@@ -133,16 +133,23 @@ js2 =
   \ var b = 2; \
   \ var f = function(x, y) { b = 6; return x + y; }; \
   \ a = f(a, b); \
+  \ a = f(a, b); \
+  \ a = f(a, b); \
+  \ a = f(a, b); \
+  \ a = f(a, b); \
+  \ a = f(a, b); \
+  \ a = f(a, b); \
   \ return b + a; \
   \ }"
 
 js2b =
   " \
-  \ var b = 3; \
   \ var a = 1; \
-  \ var f = function(x, y) { b = 6; return x + y; }; \
+  \ var b = 2; \
+  \ var f = function(x, y) { return x + y; }; \
   \ a = f(a, b); \
-  \ return b + a; \
+  \ a = f(a, b); \
+  \ return a; \
   \ }"
 
 js3 =
