@@ -262,6 +262,17 @@ testConvert e = P $ unSS ss [Return (Ref world)]
   where (_, ss)       = runState (convertS $ BlockStmt a pr) idContext
         (Script a pr) = parseProgram e
 
+simplifyjs :: String -> L String
+simplifyjs js = simplify $ sToP $ testConvert js
+
+cmpjs :: String -> String -> Maybe (L String)
+cmpjs js1 js2 = (simplify $ sToP $ testConvert js1)
+       `lmtree` (simplify $ sToP $ testConvert js2)
+
+cmpjs1 :: String -> String -> Maybe (L String)
+cmpjs1 js1 js2 = (simplify $ sToP $ testConvert js1)
+       `lmtree1` (simplify $ sToP $ testConvert js2)
+
 texpr1 = parseExpr "a.exec('fn').push(b), noobj('arg'), a"
 
 texpr2 = parseExpr "b = x, a = y, a = f(b), a = f(a), a = f(a), a = f(a), a"

@@ -136,6 +136,15 @@ js2 =
   \ return b + a; \
   \ }"
 
+js2b =
+  " \
+  \ var b = 3; \
+  \ var a = 1; \
+  \ var f = function(x, y) { b = 6; return x + y; }; \
+  \ a = f(a, b); \
+  \ return b + a; \
+  \ }"
+
 js3 =
   " f = function(x, y) { return x + y; }; \
   \ getf = function(f_add) { o = new Object(); o.add = f_add; return o } \
