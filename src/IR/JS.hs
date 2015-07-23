@@ -39,9 +39,6 @@ newDecl decl = do
            }
   return $ unIndex st
 
-showDecl :: [Int] -> String
-showDecl decl = "⟨" ++ intercalate " " (map show decl) ++ "⟩"
-
 newBlock :: Context -> Context
 newBlock st =
   st { unSS     = id
@@ -144,9 +141,9 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
 
   case M.lookup lv (unWorld st) of
     Just decl -> do
-      pushBack $ Assign world (Call (Ref worldUpFn) [Const (showDecl decl), e', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Bound decl), e', Ref world])
     Nothing   -> do
-      pushBack $ Assign world (Call (Ref worldUpFn) [Const lv, e', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Extern lv), e', Ref world])
 
   return lv'
 convertE (AssignExpr a op (LDot a' lv fld) rv) = do
@@ -247,7 +244,7 @@ convertS (VarDeclStmt a decls) = do
     decl <- newDecl n
     whenJust e $ \e' -> do
       e'' <- convertE e'
-      pushBack $ Assign world (Call (Ref worldUpFn) [Const (showDecl decl), e'', Ref world])
+      pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Bound decl), e'', Ref world])
 {-
 convertS (FunctionStmt a (Id a) [Id a] [Statement a])
 -}

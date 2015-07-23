@@ -25,10 +25,6 @@ import Debug.Trace
 
 data Name = Bound [Int] | Extern String deriving (Eq, Ord, Data, Typeable)
 
-instance Show Name where
-  show (Bound xs) = "<" ++ intercalate ", " (map show xs) ++ ">"
-  show (Extern n) = "e" ++ n
-
 data CtrlType
 
 data E = Const String
@@ -134,7 +130,18 @@ normalize e'@(App w f x) = go (normalize f) (normalize x)
                           = error "insert"
     go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k)) x'@(W w6 m r)
       | Just v <- M.lookup k m = v
-      | otherwise              = App w f' r
+      | otherwise            = App w f' r
+    -- drilling
+    go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
+       x'@(App _ (App _ (App _ (Var _ (Extern "↖ω")) (Var _ (Extern _))) (Var _ (Extern "ω"))) (W _ m r))
+      | Just v <- M.lookup k m = v
+      | otherwise            = App w f' r
+    go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
+       x'@(App _ (App _ (App _ (Var _ (Extern "↖ω")) (Var _ (Bound var))) (Var _ (Extern "ω"))) (W _ m r))
+      | trace ("A: " ++ show k ++ ", " ++ show var) False = undefined
+      | (Bound k') <- k, k' > var, Just v <- M.lookup k m = v
+      | otherwise            = App w f' r
+    -- drilling
     go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 normalize e@(W w m r)   = W w (M.map normalize m) r
@@ -150,6 +157,7 @@ app = App u
 lam = Lam u
 var = Var u
 cnst = Cnst u
+extern = Var . Extern
 
 -- rule6 = lam [local "x"] (varlocal "a") `app` [merge [("ρ", cnst "666"), ("a", cnst "777")]]
 {-
@@ -228,11 +236,15 @@ instance Show W where
 #endif
 -}
 
+instance Show Name where
+  show (Bound xs) = "<" ++ intercalate ", " (map show xs) ++ ">"
+  show (Extern n) = n
+
 -- instance Show a => Show (L a) where
 instance Show a => Show (L a) where
   show (Cnst a c)   = c
   show (Var a n)    = show n
-  show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
+--   show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
 
   -- show ((App _ (App _ (Var _ "↖ω") k) (Var _ "ω"))) = "⟨" ++ show k ++ "⟩"
 #if 1
