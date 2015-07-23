@@ -151,7 +151,10 @@ js4 =
   " \
   \ var a = 1; \
   \ var f = function(x) { a = 6; return x; }; \
+  \ var g = function(x) { a = 8; return x; }; \
   \ var c = f(4); \
+  \ c = f(4); \
+  \ c = g(c); \
   \ return a; \
   \ }"
 
