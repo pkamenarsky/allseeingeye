@@ -171,31 +171,24 @@ rule4 = lam (bound "a") (lam (bound "b") (varglobal "+" `app` varlocal "a" `app`
 rule5 = lam (local "a") (varglobal "*" `app` varlocal "a") `app` merge (M.fromList [("x", varglobal "x"), ("y", varglobal "y")])
 -}
 
-{-
-subtree :: L -> L -> Maybe L
-#if 0
-subtree (Var "↪ω" `App` Var "ρ" `App` x1) (Var "↪ω" `App` Var "ρ" `App` x2)
-  = (Var "↪ω" `App` Var "ρ" `App`) <$> subtree x1 x2
-subtree (Var "↪ω" `App` _) (Var "↪ω" `App` _) = Just $ Var world
-#endif
-subtree (Var "↪ω" `App` _) (Var "ω") = Just $ Var world
-subtree (Var "ω") (Var "↪ω" `App` _) = Just $ Var world
-subtree (Cnst c1) (Cnst c2)
-  | c1 == c2  = Just $ Cnst c1
+subtree :: L a -> L a -> Maybe (L a)
+subtree (Cnst w c1) (Cnst _ c2)
+  | c1 == c2  = Just $ Cnst w c1
   | otherwise = Nothing
-subtree (Var c1) (Var c2)
-  | c1 == c2  = Just $ Var c1
+subtree (Var w c1) (Var _ c2)
+  | c1 == c2  = Just $ Var w c1
   | otherwise = Nothing
-subtree (App f1 xs1) (App f2 xs2) = App <$> subtree f1 f2 <*> subtree xs1 xs2
-subtree (Lam n1 f1) (Lam n2 f2)
-  | n1 == n2  = Lam n1 <$> subtree f1 f2
+subtree (App w f1 xs1) (App _ f2 xs2) = App w <$> subtree f1 f2 <*> subtree xs1 xs2
+subtree (Lam w n1 f1) (Lam _ n2 f2)
+  | n1 == n2  = Lam w n1 <$> subtree f1 f2
   | otherwise = Nothing
 subtree _ _ = Nothing
 
+tlength :: Data a => L a -> Int
 tlength = length . universe
 
-lmtree :: L -> L -> Maybe L
-lmtree l@(App f1 xs1) r@(App f2 xs2)
+lmtree :: Data a => L a -> L a -> Maybe (L a)
+lmtree l@(App _ f1 xs1) r@(App _ f2 xs2)
  | trees@(x:_) <- catMaybes [ subtree l r
                             , lmtree l f2
                             , lmtree l xs2
@@ -204,7 +197,7 @@ lmtree l@(App f1 xs1) r@(App f2 xs2)
                             ]
    = Just $ maximumBy (compare `on` tlength) trees
  | otherwise = Nothing
-lmtree l@(Lam n1 f1) r@(Lam n2 f2)
+lmtree l@(Lam _ n1 f1) r@(Lam _ n2 f2)
  | trees@(x:_) <- catMaybes [ subtree l r
                             , lmtree l f2
                             , lmtree r f1
@@ -213,22 +206,21 @@ lmtree l@(Lam n1 f1) r@(Lam n2 f2)
  | otherwise = Nothing
 lmtree l r = subtree l r
 
-lmtree1 :: L -> L -> Maybe L
-lmtree1 l@(App f1 xs1) r@(App f2 xs2)
+lmtree1 :: Data a => L a -> L a -> Maybe (L a)
+lmtree1 l@(App _ f1 xs1) r@(App _ f2 xs2)
  | trees@(x:_) <- catMaybes [ subtree l r
                             , lmtree1 l f2
                             , lmtree1 l xs2
                             ]
    = Just $ maximumBy (compare `on` tlength) trees
  | otherwise = Nothing
-lmtree1 l@(Lam n1 f1) r@(Lam n2 f2)
+lmtree1 l@(Lam _ n1 f1) r@(Lam _ n2 f2)
  | trees@(x:_) <- catMaybes [ subtree l r
                             , lmtree1 l f2
                             ]
    = Just $ maximumBy (compare `on` tlength) trees
  | otherwise = Nothing
 lmtree1 l r = subtree l r
--}
 
 {-
 instance Show W where
