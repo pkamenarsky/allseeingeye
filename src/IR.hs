@@ -23,7 +23,11 @@ import System.Random
 
 import Debug.Trace
 
-type Name = String
+data Name = Bound [Int] | Extern String deriving (Eq, Ord, Data, Typeable)
+
+instance Show Name where
+  show (Bound xs) = "<" ++ intercalate ", " (map show xs) ++ ">"
+  show (Extern n) = "e" ++ n
 
 data CtrlType
 
@@ -52,12 +56,12 @@ data L a = Cnst a String
 
 w = ""
 
-mergeFn = "⤚"
-worldFn = "↖ω"
-worldUpFn = "↪ω"
-result = "ρ"
-object = "σ"
-world = "ω"
+mergeFn = Extern "⤚"
+worldFn = Extern "↖ω"
+worldUpFn = Extern "↪ω"
+result = Extern "ρ"
+object = Extern "σ"
+world = Extern "ω"
 
 sToE :: E -> L String
 sToE (Const c)     = Cnst w c
@@ -100,7 +104,7 @@ newName () = "_r" ++ show (unsafePerformIO $ randomRIO (0, 10000) :: Int)
 
 -- subst_dbg :: Show a => Name -> L a -> L a -> L a
 subst_dbg :: Show a => Name -> L a -> L a -> L a
-subst_dbg n e e' = trace_n ("☀☀ [" ++ n ++ "=" ++ show e ++ "]") e' $ subst n e e'
+subst_dbg n e e' = trace_n ("☀☀ [" ++ show n ++ "=" ++ show e ++ "]") e' $ subst n e e'
 
 -- subst :: Name -> L a -> L a -> L a
 subst :: Show a => Name -> L a -> L a -> L a
@@ -110,7 +114,8 @@ subst n e e'@(Var w n') | n == n'   = e
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
 subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
                           | otherwise = Lam w n' (subst n e f)
-subst "ω" e@(W w2 m2 r2) e'@(W w m r) = trace_n "omega subst" e' $ W w (M.union (M.map (subst "ω" e) m) m2) r2
+subst n@(Extern "ω") e@(W w2 m2 r2) e'@(W w m r)
+  = trace_n "omega subst" e' $ W w (M.union (M.map (subst n e) m) m2) r2
 subst n e e'@(W w m r) = trace_n "w subst" e' $ W w (M.map (subst n e) m) (subst n e r)
 
 -- normalize :: Show a => L a -> L a
@@ -121,13 +126,13 @@ normalize (Var w n)    = Var w n
 -- TODO: implement capturing tests
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where
-    go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
-    go (App w2 (App w3 (Var w4 "↪ω") e'@(Cnst w5 k)) v) (Var w6 "ω")
-                          = trace_n "singleton" e' $ W w (M.singleton k (normalize v)) (Var w6 "ω")
-    go (App w2 (App w3 (Var w4 "↪ω") e'@(Cnst w5 k)) v) (W w6 m r)
+    go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
+    go (App w2 (App w3 (Var w4 (Extern "↪ω")) e'@(Var w5 k)) v) (Var w6 (Extern "ω"))
+                          = trace_n "singleton" e' $ W w (M.singleton k (normalize v)) (Var w6 (Extern "ω"))
+    go (App w2 (App w3 (Var w4 (Extern "↪ω")) e'@(Var w5 k)) v) (W w6 m r)
                           -- = trace_n "insert" e' $ W w (M.insert k (normalize v) m) r
                           = error "insert"
-    go f'@(App w3 (Var w4 "↖ω") (Cnst w5 k)) x'@(W w6 m r)
+    go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k)) x'@(W w6 m r)
       | Just v <- M.lookup k m = v
       | otherwise              = App w f' r
     go f' x'              = trace_n "app" e' $ App w f' x'
@@ -136,8 +141,8 @@ normalize e@(W w m r)   = W w (M.map normalize m) r
 
 simplify :: Show a => L a -> L a
 simplify = go . normalize
-  where go e@(W _ m _) | Just r <- M.lookup "ρ" m = r
-                       | otherwise                = e
+  where go e@(W _ m _) | Just r <- M.lookup (Extern "ρ") m = r
+                       | otherwise                         = e
         go e = e
 
 u = undefined
@@ -226,13 +231,13 @@ instance Show W where
 -- instance Show a => Show (L a) where
 instance Show a => Show (L a) where
   show (Cnst a c)   = c
-  show (Var a n)    = n
-  show (Extrn a n)  = "⟨" ++ n ++ "⟩"
+  show (Var a n)    = show n
+  show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
 
   -- show ((App _ (App _ (Var _ "↖ω") k) (Var _ "ω"))) = "⟨" ++ show k ++ "⟩"
 #if 1
   show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
-  show (Lam a n f)  = "(λ" ++ n ++ " → " ++ show f ++ ")"
+  show (Lam a n f)  = "(λ" ++ show n ++ " → " ++ show f ++ ")"
 #else
 {-
   show (App a f x)                      = "(" ++ show f ++ " " ++ intercalate " " (map show x) ++ ")"
@@ -245,4 +250,4 @@ instance Show a => Show (L a) where
   show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
 #endif
-  show (W a m r)                            = "W{" ++ intercalate "," (map (\(k, v) -> k ++ "=" ++ show v) $ M.toList m) ++ "}"
+  show (W a m r)                            = "W{" ++ intercalate "," (map (\(k, v) -> show k ++ "=" ++ show v) $ M.toList m) ++ "}"
