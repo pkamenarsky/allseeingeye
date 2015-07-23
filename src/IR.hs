@@ -119,19 +119,22 @@ normalize :: Show a => L a -> L a
 -- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
--- TODO: implement capturing tests
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where
     go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
     go (App w2 (App w3 (Var w4 (Extern "↪ω")) e'@(Var w5 k)) v) (Var w6 (Extern "ω"))
                           = trace_n "singleton" e' $ W w (M.singleton k (normalize v)) (Var w6 (Extern "ω"))
+    -- TODO: insert ok? only happens on Objects
     go (App w2 (App w3 (Var w4 (Extern "↪ω")) e'@(Var w5 k)) v) (W w6 m r)
-                          -- = trace_n "insert" e' $ W w (M.insert k (normalize v) m) r
-                          = error "insert"
+                          = trace_n "insert" e' $ W w (M.insert k (normalize v) m) r
+                          -- = error "insert"
+    -- TODO: complete drilling edge cases
     go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k)) x'@(W w6 m r)
       | Just v <- M.lookup k m = v
       | otherwise            = App w f' r
     -- drilling
+    go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 (Extern "Object")))
+          (Var w6 (Extern "ω")) = W w M.empty (Var w6 (Extern "ω"))
     go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
        x'@(App _ (App _ (App _ (Var _ (Extern "↖ω")) (Var _ (Extern _))) (Var _ (Extern "ω"))) (W _ m r))
       | Just v <- M.lookup k m = v

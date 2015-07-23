@@ -97,7 +97,7 @@ convertE (ThisRef a)
 convertE (VarRef a (Id a' ref)) = resolveVar ref
 convertE (DotRef _ e (Id _ ref)) = do
   e'   <- convertE e
-  return $ Call (Ref (Extern "get")) [Const ref, e']
+  return $ Call (Ref worldFn) [Ref (Extern ref), e']
 convertE (BracketRef a e i) = do
   e' <- convertE e
   i' <- convertE i
@@ -154,10 +154,10 @@ convertE (AssignExpr a op (LDot a' lv fld) rv) = do
     Just n -> do
       case M.lookup n (unWorld st) of
         Just n' -> do
-          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Bound n'), Call (Ref (Extern "set")) [Const fld, rv', lv'], Ref world])
+          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Bound n'), Call (Ref worldUpFn) [Ref (Extern fld), rv', lv'], Ref world])
           return $ (Call (Ref worldFn) [lv', Ref world])
         Nothing -> do
-          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Extern n), Call (Ref (Extern "set")) [Const fld, rv', lv'], Ref world])
+          pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Extern n), Call (Ref worldUpFn) [Ref (Extern fld), rv', lv'], Ref world])
           return $ (Call (Ref worldFn) [lv', Ref world])
       -- pushBack $ Assign n (Call (Ref "set") [lv', Const fld, rv'])
       -- return $ Ref n
