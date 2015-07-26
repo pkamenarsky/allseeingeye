@@ -47,7 +47,6 @@ data L a = Cnst a String
          | Extrn a Name
          | App a (L a) (L a)
          | Lam a Name (L a)
-         | W a (M.Map Name (L a)) (L a)
          deriving (Eq, Ord, Data, Typeable)
 
 w = ""
@@ -79,12 +78,6 @@ fixpoint f a | a == a' = a
 
 trace_tag str x = trace (str ++ show x) x
 
-deleteElem :: Eq k => k -> [(k, v)] -> [(k, v)]
-deleteElem k = filter ((/= k) . fst)
-
-unionElems :: Ord k => [(k, v)] -> [(k, v)] -> [(k, v)]
-unionElems m1 m2 = M.toList (M.fromList m1 `M.union` M.fromList m2)
-
 trace_n :: Show a => String -> L a -> L a -> L a
 {-
 trace_n rule before after = unsafePerformIO $ do
@@ -94,70 +87,44 @@ trace_n rule before after = unsafePerformIO $ do
 -- trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
 trace_n rule before after = after
 
+-- trace_n2 rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
+trace_n2 rule before after = after
+
 {-# NOINLINE newName #-}
 newName :: () -> String
 newName () = "_r" ++ show (unsafePerformIO $ randomRIO (0, 10000) :: Int)
 
--- subst_dbg :: Show a => Name -> L a -> L a -> L a
 subst_dbg :: Show a => Name -> L a -> L a -> L a
 subst_dbg n e e' = trace_n ("☀☀ [" ++ show n ++ "=" ++ show e ++ "]") e' $ subst n e e'
 
--- subst :: Name -> L a -> L a -> L a
 subst :: Show a => Name -> L a -> L a -> L a
 subst _ _ e'@(Cnst _ _) = e'
 subst n e e'@(Var w n') | n == n'   = e
                         | otherwise = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
-subst n e e'@(Lam w n' f) | n == n'   = Lam w n' f
+subst n e e'@(Lam w n' f) | n == n'   = trace ("SAME: " ++ show n) e'
                           | otherwise = Lam w n' (subst n e f)
--- TODO: is subst recursive or something?
--- ↪k (...ω...) (↪ k' (...ω'...) ω)
-subst n@(Extern "ω") e@(W w2 m2 r2) e'@(W w m r)
-  = trace_n "omega subst" e' $ W w (M.union (M.map (subst n e) m) m2) r2
-subst n e e'@(W w m r) = trace_n "w subst" e' $ W w (M.map (subst n e) m) r
 
--- normalize :: Show a => L a -> L a
 normalize :: Show a => L a -> L a
--- normalize e | trace (show e) False = undefined
 normalize (Cnst w c)   = Cnst w c
 normalize (Var w n)    = Var w n
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where
     go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
-    go (App w2 (App w3 (Var w4 (Extern "↪ω")) e'@(Var w5 k)) v) (Var w6 (Extern "ω"))
-                          = trace_n "singleton" e' $ W w (M.singleton k (normalize v)) (Var w6 (Extern "ω"))
-    -- TODO: insert ok? only happens on Objects
-    go (App w2 (App w3 (Var w4 (Extern "↪ω")) e'@(Var w5 k)) v) (W w6 m r)
-                          = trace_n "insert" e' $ W w (M.insert k (normalize v) m) r
-                          -- = error "insert"
     -- TODO: complete drilling edge cases
-    go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k)) x'@(W w6 m r)
-      | Just v <- M.lookup k m = v
-      | otherwise            = App w f' r
-    -- drilling
-#if 0
-    go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 (Extern "Object")))
-          (Var w6 (Extern "ω")) = W w M.empty (Var w6 (Extern "ω"))
-    go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
-       x'@(App _ (App _ (App _ (Var _ (Extern "↖ω")) (Var _ (Extern _))) (Var _ (Extern "ω"))) (W _ m r))
-      | Just v <- M.lookup k m = v
-      | otherwise            = App w f' r
-    go f'@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
-       x'@(App _ (App _ (App _ (Var _ (Extern "↖ω")) (Var _ (Bound var))) (Var _ (Extern "ω"))) (W _ m r))
-      | trace ("A: " ++ show k ++ ", " ++ show var) False = undefined
-      | (Bound k') <- k, k' > var, Just v <- M.lookup k m = v
-      | otherwise            = App w f' r
-#endif
-    -- drilling
+    go f@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
+       x@(App _ (App _ (App _ (Var _ (Extern "↪ω"))
+                              (Var _ k'))
+                       v)
+                cnt)
+      | k == k' = trace_n2 ("drill [" ++ show k ++ " = " ++ show v ++ "]") x $ v
+      | otherwise = go f cnt
+
     go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
-normalize e@(W w m r)   = W w (M.map normalize m) r
 
 simplify :: Show a => L a -> L a
-simplify = go . normalize
-  where go e@(W _ m _) | Just r <- M.lookup (Extern "ρ") m = r
-                       | otherwise                         = e
-        go e = e
+simplify = normalize
 
 u = undefined
 app = App u
@@ -165,15 +132,6 @@ lam = Lam u
 var = Var u
 cnst = Cnst u
 extern = Var . Extern
-
--- rule6 = lam [local "x"] (varlocal "a") `app` [merge [("ρ", cnst "666"), ("a", cnst "777")]]
-{-
-rule1 = cnst "⤚" `app` varlocal "x" `app` varlocal "y"
-rule2 = lam (local"f") (lam (bound "x") (varlocal "f" `app` varlocal "x" `app` varlocal "y"))
-rule3 = rule2 `app` (lam (bound "a") (lam (local "b") (varglobal "*" `app` varlocal "a" `app` varlocal "b"))) `app` cnst "5"
-rule4 = lam (bound "a") (lam (bound "b") (varglobal "+" `app` varlocal "a" `app` varlocal "b") `app` cnst "6") `app` cnst "5"
-rule5 = lam (local "a") (varglobal "*" `app` varlocal "a") `app` merge (M.fromList [("x", varglobal "x"), ("y", varglobal "y")])
--}
 
 subtree :: L a -> L a -> Maybe (L a)
 subtree (Cnst w c1) (Cnst _ c2)
@@ -226,26 +184,16 @@ lmtree1 l@(Lam _ n1 f1) r@(Lam _ n2 f2)
  | otherwise = Nothing
 lmtree1 l r = subtree l r
 
-{-
-instance Show W where
-#if 0
-  show (W w) = "⟦" ++ intercalate ", " (map (\(k, v) -> k ++ " → " ++ show v) $ M.toList w) ++ "⟧"
-#else
-  show (W w) = "(W " ++ intercalate " " (map (\(k, v) -> show k ++ " → " ++ show v) $ M.toList w) ++ ")"
-#endif
--}
-
 instance Show Name where
   show (Bound xs) = "<" ++ intercalate ", " (map show xs) ++ ">"
   show (Extern n) = n
 
--- instance Show a => Show (L a) where
 instance Show a => Show (L a) where
   show (Cnst a c)   = c
   show (Var a n)    = show n
 --   show (Extrn a n)  = "⟨" ++ show n ++ "⟩"
 
-  -- show ((App _ (App _ (Var _ "↖ω") k) (Var _ "ω"))) = "⟨" ++ show k ++ "⟩"
+--  show ((App _ (App _ (Var _ (Extern "↖ω")) k) (Var _ (Extern "ω")))) = "⟨" ++ show k ++ "⟩"
 #if 1
   show (App a f x)  = "(" ++ show f ++ " " ++ show x ++ ")"
   show (Lam a n f)  = "(λ" ++ show n ++ " → " ++ show f ++ ")"
@@ -261,4 +209,3 @@ instance Show a => Show (L a) where
   show (App a f x)                          = "" ++ show f ++ " " ++ show x ++ ""
   show (Lam a n f)                          = "λ" ++ show n ++ " → " ++ show f ++ ""
 #endif
-  show (W a m r)                            = "W{" ++ intercalate "," (map (\(k, v) -> show k ++ "=" ++ show v) $ M.toList m) ++ "}"
