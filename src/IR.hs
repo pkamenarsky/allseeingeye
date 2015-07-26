@@ -102,7 +102,7 @@ subst _ _ e'@(Cnst _ _) = e'
 subst n e e'@(Var w n') | n == n'   = e
                         | otherwise = e'
 subst n e e'@(App w f x) = App w (subst n e f) (subst n e x)
-subst n e e'@(Lam w n' f) | n == n'   = trace ("SAME: " ++ show n) e'
+subst n e e'@(Lam w n' f) | n == n'   = e'
                           | otherwise = Lam w n' (subst n e f)
 
 normalize :: Show a => L a -> L a

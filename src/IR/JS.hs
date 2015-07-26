@@ -141,6 +141,7 @@ convertE (AssignExpr a op (LVar a' lv) e) = do
 
   case M.lookup lv (unWorld st) of
     Just decl -> do
+      -- newdecl <- newDecl lv
       pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Bound decl), e', Ref world])
     Nothing   -> do
       pushBack $ Assign world (Call (Ref worldUpFn) [Ref (Extern lv), e', Ref world])
