@@ -87,8 +87,8 @@ trace_n rule before after = unsafePerformIO $ do
 -- trace_n rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
 trace_n rule before after = after
 
--- trace_n2 rule before after = trace (" ★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after) after
-trace_n2 rule before after = after
+trace_n2 rule before after = trace (" \n★ " ++ rule ++ " ★ " ++ show before ++ " ▶ " ++ show after ++ "\n") after
+-- trace_n2 rule before after = after
 
 {-# NOINLINE newName #-}
 newName :: () -> String
@@ -111,20 +111,27 @@ normalize (Var w n)    = Var w n
 normalize e'@(App w f x) = go (normalize f) (normalize x)
   where
     go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
+
     -- TODO: complete drilling edge cases
     go f@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
        x@(App _ (App _ (App _ (Var _ (Extern "↪ω"))
                               (Var _ k'))
                        v)
                 cnt)
-      | k == k' = trace_n2 ("drill [" ++ show k ++ " = " ++ show v ++ "]") x $ v
+      | k == k' = trace_n ("drill [" ++ show k ++ " = " ++ show v ++ "]") x $ v
       | otherwise = go f cnt
 
     go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
 
 simplify :: Show a => L a -> L a
-simplify = normalize
+simplify = go . normalize
+  where
+    go (App _ (App _ (App _ (Var _ (Extern "↪ω"))
+                                  (Var _ (Extern "ρ")))
+                           v)
+                    cnt) = v
+    go e = e
 
 u = undefined
 app = App u

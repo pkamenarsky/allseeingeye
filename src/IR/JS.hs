@@ -24,6 +24,7 @@ type VarIndex = [Int]
 data Context = Context
   { unSS      :: [S] -> [S]
   , unWorld   :: M.Map String VarIndex
+  , unAssign  :: M.Map String VarIndex
   , unIndex   :: VarIndex
   , unArgs    :: S.Set String
   }
@@ -35,6 +36,14 @@ newDecl :: String -> State Context [Int]
 newDecl decl = do
   st <- get
   put $ st { unWorld  = M.insert decl (unIndex st) (unWorld st)
+           , unIndex  = init (unIndex st) ++ [last (unIndex st) + 1]
+           }
+  return $ unIndex st
+
+newAssign :: String -> State Context [Int]
+newAssign decl = do
+  st <- get
+  put $ st { unAssign = M.insert decl (unIndex st) (unWorld st)
            , unIndex  = init (unIndex st) ++ [last (unIndex st) + 1]
            }
   return $ unIndex st
@@ -52,7 +61,7 @@ exitBlock = do
   put $ st { unIndex  = init (unIndex st) ++ [last (unIndex st) + 1] }
 
 idContext :: Context
-idContext = Context id M.empty [1] S.empty
+idContext = Context id M.empty M.empty [1] S.empty
 
 -- function name, impure arguments (0 is this, -1 is world)
 fns :: M.Map String [Int]

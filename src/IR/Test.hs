@@ -198,11 +198,12 @@ jsmap =
   \ }"
 
   -- \ n.push_back(f(array[i])); \
+
 jsmap2 =
   "{ \
   \ var i = array.length; \
   \ var n = new Array(); \
-  \ n.push_back(f(array[i])); \
+  \ push_back(n, f(array[i])); \
   \ return n; \
   \ }"
 
@@ -210,8 +211,8 @@ jsmap3 =
   "{ \
   \ var n = new Array(); \
   \ var i = array.length; \
-  \ n.push_back(f(array[i])); \
-  \ return n; \
+  \ var x = push_back(n, f(array[i])); \
+  \ return x; \
   \ }"
 
 jsdecl =
