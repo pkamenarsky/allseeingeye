@@ -112,6 +112,15 @@ normalize e'@(App w f x) = go (normalize f) (normalize x)
   where
     go e''@(Lam _ n e) x' = normalize $ trace_n ("subst[" ++ show n ++ "=" ++ show x' ++ "]") e'' $ subst_dbg n x' e
 
+#if 0
+    go f@(App w3 (Var w4 (Extern "↖ω")) (Var w5 (Extern k)))
+       x@(App w kv@(App _ (App _ (Var _ (Extern "↪ω"))
+                              (Var _ k'))
+                       v)
+                cnt) = trace_n ("bubble [" ++ show f ++ "]") x
+                     $ App w kv (App w f cnt)
+#endif
+
     -- TODO: complete drilling edge cases
     go f@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
        x@(App _ (App _ (App _ (Var _ (Extern "↪ω"))
@@ -120,6 +129,14 @@ normalize e'@(App w f x) = go (normalize f) (normalize x)
                 cnt)
       | k == k' = trace_n ("drill [" ++ show k ++ " = " ++ show v ++ "]") x $ v
       | otherwise = go f cnt
+
+    go f@(App w3 (Var w4 (Extern "↖ω")) (Var w5 k))
+       x@(App out _ (App _ (App _ (App _ (Var _ (Extern "↪ω"))
+                              (Var _ k'))
+                       v)
+                cnt))
+      | k == k' = trace_n ("drill [" ++ show k ++ " = " ++ show v ++ "]") x $ v
+      | k /= Extern "ρ" = go f cnt
 
     go f' x'              = trace_n "app" e' $ App w f' x'
 normalize e@(Lam w n f) = trace_n "lam" e $ Lam w n (normalize f)
